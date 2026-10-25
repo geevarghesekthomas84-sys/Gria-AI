@@ -1,117 +1,209 @@
-# NEXUS AI — ChatGPT-Style Android Local AI Assistant
+<div align="center">
 
-[![Android](https://img.shields.io/badge/Platform-Android_10+-green.svg)](https://android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.20-purple.svg)](https://kotlinlang.org)
-[![Compose](https://img.shields.io/badge/Jetpack_Compose-Material_3-blue.svg)](https://developer.android.com/jetpack/compose)
-[![LM Studio](https://img.shields.io/badge/Backend-LM_Studio_Local_LLM-orange.svg)](https://lmstudio.ai)
-[![License](https://img.shields.io/badge/License-Apache_2.0-lightgrey.svg)](LICENSE)
+# ✦ NEXUS AI ✦
+### *Quiet Luxury Local AI Assistant for Android*
 
-**NEXUS AI** is an exceptionally polished, 100% private Android AI chat application delivering a ChatGPT-grade conversational experience powered by your own local LLMs running inside **LM Studio** on Windows.
+A state-of-the-art, 100% private Android AI chat application delivering a ChatGPT-grade conversational experience powered directly by your own local LLMs running inside **LM Studio** on your PC.
 
-Crafted around a **Quiet Luxury + Modern Minimalism** visual design ethos inspired by the simplicity of ChatGPT, typography of Claude, and attention to detail of native Apple applications.
+[![Platform](https://img.shields.io/badge/Platform-Android%2010%2B%20(API%2029%2B)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.3.20-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Backend](https://img.shields.io/badge/Inference-LM%20Studio%20Local%20LAN-F89820?style=for-the-badge&logo=openai&logoColor=white)](https://lmstudio.ai)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](LICENSE)
 
----
+<br/>
 
-## 🌟 Highlights & Key Features
+[ ✨ Highlights ](#-highlights) • [ 📱 Interface Gallery ](#-interface-gallery) • [ 🏛️ Architecture ](#️-architecture) • [ 🚀 Quick Start ](#-quick-start) • [ 👨‍💻 Author ](#-author--credits)
 
-### 1. Quiet Luxury Aesthetic
-- Sophisticated warm-white/slate color palette (`#FAFAF8` base, `#F1F1EE` elevated surfaces, `#202124` text, `#344B70` midnight blue accents).
-- Fluid transitions, refined whitespace, edge-to-edge layout, and adaptive Dark Mode.
-
-### 2. Live Server Latency & Health Indicator
-- Dynamic status pill in the Top App Bar (`Nexus · Mistral v ● 26ms`).
-- Real-time roundtrip HTTP health probes to monitor local Wi-Fi connectivity to LM Studio.
-
-### 3. Persona / Mode Presets
-- One-tap horizontal pill selector to switch system behavior on the fly:
-  - 🤖 **Personal AI**: Thoughtful, warm, concise daily companion.
-  - 💻 **Senior Coder**: Clean, idiomatic, robust code-first engineering assistant.
-  - 🛡️ **Security Analyst**: Defensive security specialist, architecture auditor, and hardening advisor.
-  - ⚡ **Concise Synthesizer**: High-density, bullet-driven executive summaries.
-
-### 4. Generation Speed & Telemetry
-- Precise real-time token streaming telemetry displayed on every completed assistant message:
-  `13.6 tok/s · 370 tokens · 27.3s`.
-- Metrics are tracked and persisted locally in SQLite.
-
-### 5. Multi-Language Code Syntax Highlighting
-- Custom lightweight lexer supporting **Kotlin, Python, Bash, Rust, JavaScript/TypeScript, SQL, and JSON**.
-- Quiet Luxury syntax palette: slate-violet keywords, terracotta strings, teal numbers, and muted sage comments.
-- One-tap **Copy Code** with instant Apple-grade haptic confirmation.
-
-### 6. On-Device Voice Input (Speech-to-Text)
-- Integrated microphone button in the composer with animated breathing halo.
-- Native speech recognition modal with live audio waveforms and real-time transcription.
-- Automatically places spoken queries into the composer.
-
-### 7. Apple-Grade Haptic Micro-Interactions
-- Tactile feedback designed with precision:
-  - `tick`: Mechanical detent on tapping persona chips, send, and stop.
-  - `confirm`: Double-click haptic confirmation on copying code or message text.
-  - `completionPulse`: Soft sensory pulse when the LLM finishes streaming its response.
-
-### 8. 100% Private & Offline-Capable
-- Zero telemetry, zero cloud tracking, zero data leaving your local network.
-- All requests communicate exclusively over your Wi-Fi LAN to LM Studio (`http://<YOUR_PC_IP>:1234`).
+</div>
 
 ---
 
-## 📱 Architecture & Tech Stack
+## 📱 Interface Gallery
 
-- **Pattern**: Clean Architecture (Domain, Data, Feature, Core) + MVI/MVVM
-- **Language**: Kotlin 2.3.20 + Kotlin Coroutines & Flow
-- **UI Framework**: Jetpack Compose + Material 3 + Edge-to-Edge
-- **Networking**: Retrofit 2 + OkHttp 4 + OkHttp Server-Sent Events (SSE)
-- **Serialization**: Kotlinx Serialization JSON
-- **Persistence**: SQLite OpenHelper with reactive Kotlin Flow change triggers
-- **Preferences**: AndroidX Preferences DataStore
+Experience the **Quiet Luxury + Modern Minimalism** design system on real Android hardware:
+
+<div align="center">
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <b>✦ Quiet Luxury Welcome Screen</b><br/>
+      <sub>Warm-white palette (#FAFAF8), persona pills, and ping status</sub><br/><br/>
+      <img src="docs/screenshots/01_home_screen.png" width="92%" alt="NEXUS AI Home Screen" />
+    </td>
+    <td align="center" width="50%">
+      <b>💬 Code Syntax Highlighting & Live Telemetry</b><br/>
+      <sub>Multi-language lexer, copy button, and tok/s performance footer</sub><br/><br/>
+      <img src="docs/screenshots/02_chat_syntax_telemetry.png" width="92%" alt="NEXUS AI Chat Screen with Telemetry" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>🎙️ On-Device Voice Input (STT)</b><br/>
+      <sub>Native speech recognition modal with live audio waveforms</sub><br/><br/>
+      <img src="docs/screenshots/03_voice_input.png" width="92%" alt="NEXUS AI Voice Input" />
+    </td>
+    <td align="center" width="50%">
+      <b>📚 SQLite Conversation Drawer</b><br/>
+      <sub>Searchable history, pinned chats, and quick access</sub><br/><br/>
+      <img src="docs/screenshots/04_history_drawer.png" width="92%" alt="NEXUS AI History Drawer" />
+    </td>
+  </tr>
+</table>
+</div>
 
 ---
 
-## 🚀 Getting Started
+## 🌟 Highlights
 
-### Prerequisites
-1. **Android Studio** (Koala / Ladybug or newer) with Android SDK 35+.
-2. **LM Studio** installed on your Windows PC ([lmstudio.ai](https://lmstudio.ai)).
-3. Physical Android device or emulator running Android 10+ (API 29+).
+<table>
+  <tr>
+    <td width="50%">
+      <h3>⚡ Real-Time Streaming & Telemetry</h3>
+      Native Server-Sent Events (SSE) token delivery. Measures exact generation metrics on every assistant completion:
+      <code>13.6 tok/s · 370 tokens · 27.3s</code>.
+    </td>
+    <td width="50%">
+      <h3>🟢 Live Server Latency Badge</h3>
+      Top bar status pill tracks real Wi-Fi network latency directly to your LM Studio server (<code>Nexus · Mistral v ● 26ms</code>) with health-state color indicators.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>🎭 Quick Persona / Mode Presets</h3>
+      Seamlessly switch system prompts without starting a new chat:
+      <ul>
+        <li><b>Personal AI</b>: Warm, concise daily companion</li>
+        <li><b>Senior Coder</b>: Idiomatic, clean software engineer</li>
+        <li><b>Security Analyst</b>: Architecture & posture auditor</li>
+        <li><b>Concise Synthesizer</b>: High-density executive bullets</li>
+      </ul>
+    </td>
+    <td width="50%">
+      <h3>🎨 Quiet Luxury Syntax Highlighting</h3>
+      Custom multi-language lexer supporting <b>Kotlin, Python, Bash, Rust, JavaScript, TypeScript, SQL, and JSON</b> with slate violet, terracotta, and deep teal tokens.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <h3>🎙️ On-Device Voice Input</h3>
+      One-tap microphone button with animated breathing halo. Launches the native Google Speech Recognition modal with real-time audio waveforms.
+    </td>
+    <td width="50%">
+      <h3>📳 Apple-Grade Haptic Micro-Interactions</h3>
+      Precision tactile feedback: mechanical detents on persona toggles, double-click haptic confirmation on copy, and completion pulses when the AI finishes streaming.
+    </td>
+  </tr>
+</table>
 
-### 1. Start LM Studio Server
-1. Launch LM Studio and load any GGUF model (e.g. `Mistral-7B-Instruct-v0.3`, `Llama-3.1-8B`, `Qwen2.5-Coder`).
-2. Navigate to the **Developer** tab (`<->`).
-3. Check **Serve on Local Network (0.0.0.0)** and click **Start Server** on port `1234`.
-4. Note your PC's local IPv4 address (run `ipconfig` in PowerShell, e.g. `192.168.1.100`).
+---
 
-### 2. Build & Install the App
+## 🏛️ Architecture
+
+NEXUS AI is built strictly on **Clean Architecture + MVI/MVVM**, decoupling domain business logic from the UI presentation layer and network transport.
+
+```mermaid
+graph TD
+    subgraph MobileDevice["📱 Android Client (Nexus AI)"]
+        UI["Jetpack Compose UI<br/><i>(Quiet Luxury + Material 3)</i>"]
+        VM["ChatViewModel<br/><i>(MVI State & Haptic Engine)</i>"]
+        Repo["ChatRepository<br/><i>(Clean Architecture)</i>"]
+        DB[("SQLite Database<br/><i>(Messages & Telemetry)</i>")]
+        SSE["OkHttp SSE Client<br/><i>(Token Streaming Engine)</i>"]
+
+        UI <--> VM
+        VM <--> Repo
+        Repo <--> DB
+        Repo <--> SSE
+    end
+
+    subgraph LocalLAN["📡 Private Local Network (Wi-Fi)"]
+        Router["LAN Router<br/><i>(192.168.1.x)</i>"]
+    end
+
+    subgraph HostPC["💻 Host Machine (LM Studio)"]
+        LMS["LM Studio Server<br/><i>(Port 1234 · OpenAI API)</i>"]
+        LLM["Local GGUF LLM<br/><i>(Mistral 7B / Llama 3.1 / Qwen 2.5)</i>"]
+        
+        LMS <--> LLM
+    end
+
+    SSE <==>|"Encrypted / Cleartext LAN"| Router
+    Router <==>|"SSE Stream & REST"| LMS
+```
+
+### Tech Stack Matrix
+
+| Layer | Technologies |
+| :--- | :--- |
+| **UI & Presentation** | Jetpack Compose 2024, Material 3, Edge-to-Edge, Compose Animations |
+| **Architecture** | Clean Architecture (Domain, Data, Feature, Core) + MVVM / MVI |
+| **Language & Concurrency** | Kotlin 2.3.20, Kotlin Coroutines, StateFlow, SharedFlow |
+| **Networking & SSE** | Retrofit 2, OkHttp 4, OkHttp Server-Sent Events (`EventSource`) |
+| **Serialization** | Kotlinx Serialization JSON |
+| **Local Persistence** | SQLite OpenHelper with reactive Kotlin Flow change triggers |
+| **Preferences** | AndroidX Preferences DataStore |
+| **Hardware Integration** | `Vibrator` / `VibrationEffect` API, `SpeechRecognizer`, Audio HAL |
+
+---
+
+## 🚀 Quick Start
+
+### 1. Prerequisites
+- **Android Studio** (Koala / Ladybug or newer)
+- **Android SDK** API 35
+- Physical device or emulator running **Android 10+ (API 29+)**
+- **LM Studio** installed on your PC ([lmstudio.ai](https://lmstudio.ai))
+
+### 2. Configure LM Studio
+1. Open LM Studio and load any GGUF model (e.g. `mistral-7b-instruct-v0.3`, `llama-3.1-8b-instruct`).
+2. Navigate to the **Developer tab (`<->`)**.
+3. Toggle **Serve on Local Network (0.0.0.0)** and click **Start Server** on port `1234`.
+4. Run `ipconfig` in your PC terminal to get your IPv4 address (e.g., `192.168.1.100`).
+
+### 3. Clone & Build
 ```powershell
 # Clone the repository
 git clone https://github.com/geevarghesekthomas84-sys/nexus-ai.git
 cd nexus-ai
 
-# Build the debug APK
+# Compile the debug APK
 .\gradlew.bat assembleDebug
 
-# Install on your connected device
+# Install onto your connected Android device
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### 3. Connect & Chat
-1. Open **Nexus AI** on your phone.
-2. Tap the **Server Status Badge** in the top bar or open **Settings**.
-3. Enter your PC's IP address (e.g., `http://192.168.1.100:1234`) and tap **Save & Test Connection**.
-4. Select your loaded model from the top bar dropdown and begin chatting!
+### 4. Connect
+1. Launch **Nexus AI** on your phone.
+2. Tap the **Server Status Badge** in the top bar.
+3. Enter your PC's IP and port (e.g. `http://192.168.1.100:1234`) and tap **Save & Apply**.
+4. Tap the active model dropdown in the top bar to select your loaded model. Enjoy 100% private local AI!
 
 ---
 
-## 👨‍💻 Developer & Author
+## 👨‍💻 Author & Credits
 
-Built with ❤️ by **GG** (**Geevarghese K Thomas**)
+Designed and engineered with passion by **GG** (**Geevarghese K Thomas**).
 
-- **GitHub**: [@geevarghesekthomas84-sys](https://github.com/geevarghesekthomas84-sys)
-- **LinkedIn**: [Geevarghese K Thomas](https://www.linkedin.com/in/geevarghese-k-thomas)
-- **Support**: [Buy Me a Coffee](https://buymeacoffee.com/geevarghes2)
+<div align="center">
+
+[![GitHub](https://img.shields.io/badge/GitHub-geevarghesekthomas84--sys-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/geevarghesekthomas84-sys)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Geevarghese%20K%20Thomas-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/geevarghese-k-thomas)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/geevarghes2)
+
+</div>
 
 ---
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 — see the [LICENSE](LICENSE) file for details.
+```
+Copyright 2026 Geevarghese K Thomas (GG)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+```
