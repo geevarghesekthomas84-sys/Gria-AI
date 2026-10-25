@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer Orbit Points -->
+    <path
+        android:fillColor="#53698F"
+        android:pathData="M 54, 27 A 1.8,1.8 0 1 1 53.99, 27" />
+    <path
+        android:fillColor="#53698F"
+        android:pathData="M 81, 54 A 1.8,1.8 0 1 1 80.99, 54" />
+    <path
+        android:fillColor="#53698F"
+        android:pathData="M 54, 81 A 1.8,1.8 0 1 1 53.99, 81" />
+    <path
+        android:fillColor="#53698F"
+        android:pathData="M 27, 54 A 1.8,1.8 0 1 1 26.99, 54" />
+
+    <!-- Nexus Astrolabe Lens / Star in Warm White -->
+    <path
+        android:fillColor="#FAFAF8"
+        android:pathData="M 54,32 C 54,45 63,54 76,54 C 63,54 54,63 54,76 C 54,63 45,54 32,54 C 45,54 54,45 54,32 Z" />
+
+    <!-- Central Midnight Blue Convergence Diamond -->
+    <path
+        android:fillColor="#344B70"
+        android:pathData="M 54,42 L 66,54 L 54,66 L 42,54 Z" />
+
+    <!-- Pure Core Light Focus -->
+    <path
+        android:fillColor="#FAFAF8"
+        android:pathData="M 54, 51.5 A 2.5,2.5 0 1 1 53.99, 51.5" />
+</vector>
