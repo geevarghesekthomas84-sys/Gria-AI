@@ -1,0 +1,229 @@
+package com.nexusai.app.core.llm
+
+import android.content.Context
+import android.net.Uri
+import android.os.Environment
+import android.util.Log
+import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.nexusai.app.domain.model.Message
+import com.nexusai.app.domain.model.MessageRole
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+
+class OnDeviceLlmEngine(private val context: Context) {
+
+    private var currentModelPath: String? = null
+    private var llmInference: LlmInference? = null
+    
+    @Volatile
+    private var activeChunkListener: ((String, Boolean) -> Unit)? = null
+
+    @Volatile
+    private var activeErrorListener: ((Throwable) -> Unit)? = null
+
+    val isModelLoaded: Boolean
+        get() = llmInference != null
+
+    val loadedModelName: String?
+        get() = currentModelPath?.let { File(it).name }
+
+    val loadedModelPath: String?
+        get() = currentModelPath
+
+    init {
+        // Automatically scan for existing models in app directory or Downloads on startup
+        tryAutoLoadAvailableModel()
+    }
+
+    fun tryAutoLoadAvailableModel(): Boolean {
+        if (isModelLoaded) return true
+
+        // 1. Check internal files/models
+        val modelsDir = File(context.filesDir, "models")
+        if (modelsDir.exists()) {
+            val candidate = modelsDir.listFiles { file ->
+                file.isFile && (file.name.endsWith(".bin") || file.name.endsWith(".task"))
+            }?.firstOrNull()
+
+            if (candidate != null) {
+                val res = loadModel(candidate)
+                if (res.isSuccess) return true
+            }
+        }
+
+        // 2. Check public Downloads folder
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        if (downloadsDir != null && downloadsDir.exists()) {
+            val candidate = downloadsDir.listFiles { file ->
+                file.isFile && (file.name.contains("gemma", ignoreCase = true) && 
+                        (file.name.endsWith(".bin") || file.name.endsWith(".task")))
+            }?.firstOrNull()
+
+            if (candidate != null) {
+                val res = loadModel(candidate)
+                if (res.isSuccess) return true
+            }
+        }
+
+        return false
+    }
+
+    @Synchronized
+    fun loadModel(modelFile: File): Result<Unit> {
+        return try {
+            if (!modelFile.exists() || !modelFile.canRead()) {
+                return Result.failure(IllegalArgumentException("Model file does not exist or cannot be read: ${modelFile.absolutePath}"))
+            }
+
+            if (currentModelPath == modelFile.absolutePath && llmInference != null) {
+                return Result.success(Unit)
+            }
+
+            close()
+
+            val options = LlmInference.LlmInferenceOptions.builder()
+                .setModelPath(modelFile.absolutePath)
+                .setMaxTokens(2048)
+                .setTemperature(0.7f)
+                .setTopK(40)
+                .setResultListener { partial, done ->
+                    activeChunkListener?.invoke(partial, done)
+                }
+                .setErrorListener { error ->
+                    Log.e("OnDeviceLlmEngine", "Inference error: $error")
+                    activeErrorListener?.invoke(error)
+                }
+                .build()
+
+            llmInference = LlmInference.createFromOptions(context, options)
+            currentModelPath = modelFile.absolutePath
+            Log.i("OnDeviceLlmEngine", "Successfully loaded on-device model from ${modelFile.absolutePath}")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("OnDeviceLlmEngine", "Failed to load on-device model", e)
+            close()
+            Result.failure(e)
+        }
+    }
+
+    suspend fun loadModelFromUri(
+        uri: Uri,
+        fileName: String,
+        onProgress: (Float) -> Unit = {}
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val modelsDir = File(context.filesDir, "models")
+            if (!modelsDir.exists()) modelsDir.mkdirs()
+
+            val targetFile = File(modelsDir, fileName)
+            val contentResolver = context.contentResolver
+
+            contentResolver.openInputStream(uri)?.use { input ->
+                val totalBytes = contentResolver.openFileDescriptor(uri, "r")?.statSize ?: -1L
+                var bytesCopied = 0L
+
+                FileOutputStream(targetFile).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                        bytesCopied += read
+                        if (totalBytes > 0) {
+                            onProgress(bytesCopied.toFloat() / totalBytes)
+                        }
+                    }
+                    output.flush()
+                }
+            } ?: return@withContext Result.failure(IllegalArgumentException("Unable to read content URI: $uri"))
+
+            loadModel(targetFile)
+        } catch (e: Exception) {
+            Log.e("OnDeviceLlmEngine", "Error importing model from URI", e)
+            Result.failure(e)
+        }
+    }
+
+    fun formatGemmaPrompt(systemPrompt: String, messages: List<Message>): String {
+        val builder = StringBuilder()
+
+        val validMessages = messages.filter { it.content.isNotBlank() }
+
+        if (validMessages.isEmpty()) {
+            return "<start_of_turn>user\n${systemPrompt.ifBlank { "Hello!" }}<end_of_turn>\n<start_of_turn>model\n"
+        }
+
+        var isFirstUserTurn = true
+        for (msg in validMessages) {
+            when (msg.role) {
+                MessageRole.USER -> {
+                    builder.append("<start_of_turn>user\n")
+                    if (isFirstUserTurn && systemPrompt.isNotBlank()) {
+                        builder.append("[System Instructions: ").append(systemPrompt.trim()).append("]\n\n")
+                        isFirstUserTurn = false
+                    }
+                    builder.append(msg.content.trim()).append("<end_of_turn>\n")
+                }
+                MessageRole.ASSISTANT -> {
+                    builder.append("<start_of_turn>model\n")
+                    builder.append(msg.content.trim()).append("<end_of_turn>\n")
+                }
+                MessageRole.SYSTEM -> {
+                    // System messages are folded into prompt context
+                }
+            }
+        }
+
+        builder.append("<start_of_turn>model\n")
+        return builder.toString()
+    }
+
+    fun generateStream(prompt: String): Flow<String> = callbackFlow {
+        val inference = llmInference
+        if (inference == null) {
+            close(IllegalStateException("No on-device model loaded. Please select a model file in Settings."))
+            return@callbackFlow
+        }
+
+        activeChunkListener = { partial, done ->
+            if (partial.isNotEmpty()) {
+                trySend(partial)
+            }
+            if (done) {
+                channel.close()
+            }
+        }
+
+        activeErrorListener = { throwable ->
+            channel.close(throwable)
+        }
+
+        try {
+            inference.generateResponseAsync(prompt)
+        } catch (e: Exception) {
+            channel.close(e)
+        }
+
+        awaitClose {
+            activeChunkListener = null
+            activeErrorListener = null
+        }
+    }
+
+    @Synchronized
+    fun close() {
+        try {
+            llmInference?.close()
+        } catch (e: Exception) {
+            Log.w("OnDeviceLlmEngine", "Error closing inference session", e)
+        }
+        llmInference = null
+        currentModelPath = null
+        activeChunkListener = null
+        activeErrorListener = null
+    }
+}

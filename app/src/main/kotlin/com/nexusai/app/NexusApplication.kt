@@ -3,6 +3,7 @@ package com.nexusai.app
 import android.app.Application
 import com.nexusai.app.core.database.NexusDatabaseHelper
 import com.nexusai.app.core.datastore.SettingsDataStore
+import com.nexusai.app.core.llm.OnDeviceLlmEngine
 import com.nexusai.app.core.network.LmStudioStreamClient
 import com.nexusai.app.data.repository.ChatRepositoryImpl
 import com.nexusai.app.domain.repository.ChatRepository
@@ -18,6 +19,9 @@ class NexusApplication : Application() {
     lateinit var streamClient: LmStudioStreamClient
         private set
 
+    lateinit var onDeviceEngine: OnDeviceLlmEngine
+        private set
+
     lateinit var chatRepository: ChatRepository
         private set
 
@@ -28,10 +32,12 @@ class NexusApplication : Application() {
         databaseHelper = NexusDatabaseHelper(this)
         settingsDataStore = SettingsDataStore(this)
         streamClient = LmStudioStreamClient()
+        onDeviceEngine = OnDeviceLlmEngine(this)
         chatRepository = ChatRepositoryImpl(
             dbHelper = databaseHelper,
             dataStore = settingsDataStore,
-            streamClient = streamClient
+            streamClient = streamClient,
+            onDeviceEngine = onDeviceEngine
         )
     }
 
@@ -40,3 +46,4 @@ class NexusApplication : Application() {
             private set
     }
 }
+

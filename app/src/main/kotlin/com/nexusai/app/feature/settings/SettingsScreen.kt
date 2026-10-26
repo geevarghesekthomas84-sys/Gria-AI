@@ -1,6 +1,10 @@
 package com.nexusai.app.feature.settings
 
+import android.net.Uri
+import android.provider.OpenableColumns
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -20,7 +24,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -29,6 +35,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -83,7 +91,49 @@ fun SettingsScreen(
     var systemPrompt by remember(currentConfig) { mutableStateOf(currentConfig.systemPrompt) }
     var isDarkTheme by remember(currentConfig) { mutableStateOf(currentConfig.isDarkTheme) }
 
+    var isModelLoaded by remember { mutableStateOf(repository.onDeviceEngine.isModelLoaded) }
+    var loadedModelName by remember { mutableStateOf(repository.onDeviceEngine.loadedModelName) }
+    var isImportingModel by remember { mutableStateOf(false) }
+    var importProgress by remember { mutableFloatStateOf(0f) }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val fileName = run {
+                var name = "gemma-model.bin"
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (nameIdx != -1 && cursor.moveToFirst()) {
+                        name = cursor.getString(nameIdx)
+                    }
+                }
+                name
+            }
+
+            scope.launch {
+                isImportingModel = true
+                importProgress = 0f
+                Toast.makeText(context, "Importing $fileName into GPU memory...", Toast.LENGTH_SHORT).show()
+                val result = repository.onDeviceEngine.loadModelFromUri(uri, fileName) { progress ->
+                    importProgress = progress
+                }
+                isImportingModel = false
+                if (result.isSuccess) {
+                    isModelLoaded = repository.onDeviceEngine.isModelLoaded
+                    loadedModelName = repository.onDeviceEngine.loadedModelName
+                    repository.setDefaultModel("ondevice:gemma")
+                    Toast.makeText(context, "Successfully loaded $fileName onto Adreno GPU!", Toast.LENGTH_LONG).show()
+                } else {
+                    val err = result.exceptionOrNull()?.localizedMessage ?: "Failed to load model"
+                    Toast.makeText(context, "Error: $err", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+
 
     Scaffold(
         modifier = modifier
@@ -181,7 +231,139 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Group: On-Device Local AI (Gemma)
+            Text(
+                text = "ON-DEVICE LOCAL AI (GEMMA)",
+                style = NexusTypography.labelSmall.copy(color = colors.textTertiary, letterSpacing = 0.5.sp),
+                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+            )
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = colors.surfaceElevated,
+                border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(colors.accent.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Bolt,
+                                contentDescription = null,
+                                tint = colors.accent,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Snapdragon Adreno GPU",
+                                style = NexusTypography.bodyMedium.copy(
+                                    color = colors.textPrimary,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                            Text(
+                                text = if (isModelLoaded) "Model: ${loadedModelName ?: "Gemma"}" else "No model loaded · Tap below to select",
+                                style = NexusTypography.bodySmall.copy(color = if (isModelLoaded) colors.accent else colors.textSecondary)
+                            )
+                        }
+
+                        if (isModelLoaded) {
+                            TextButton(
+                                onClick = {
+                                    repository.onDeviceEngine.close()
+                                    isModelLoaded = repository.onDeviceEngine.isModelLoaded
+                                    loadedModelName = null
+                                    Toast.makeText(context, "On-device model unloaded", Toast.LENGTH_SHORT).show()
+                                }
+                            ) {
+                                Text("Unload", color = colors.statusError, style = NexusTypography.labelSmall)
+                            }
+                        }
+                    }
+
+                    if (isImportingModel) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        LinearProgressIndicator(
+                            progress = { importProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = colors.accent,
+                            trackColor = colors.surfaceSubtle
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Importing model: ${(importProgress * 100).toInt()}%",
+                            style = NexusTypography.labelSmall.copy(color = colors.textTertiary)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = colors.borderSubtle, thickness = 0.5.dp)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                filePickerLauncher.launch(arrayOf("*/*"))
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.accent)
+                        ) {
+                            Icon(Icons.Default.FileOpen, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Select Model",
+                                style = NexusTypography.labelSmall.copy(color = colors.surfaceElevated)
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val found = repository.onDeviceEngine.tryAutoLoadAvailableModel()
+                                isModelLoaded = repository.onDeviceEngine.isModelLoaded
+                                loadedModelName = repository.onDeviceEngine.loadedModelName
+                                if (found) {
+                                    scope.launch {
+                                        repository.setDefaultModel("ondevice:gemma")
+                                    }
+                                    Toast.makeText(context, "Loaded $loadedModelName from storage!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "No Gemma model found in Downloads", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle)
+                        ) {
+                            Text(
+                                text = "Auto-Scan",
+                                style = NexusTypography.labelSmall.copy(color = colors.textPrimary)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Group 2: AI Behavior & Parameters
+
             Text(
                 text = "AI BEHAVIOR",
                 style = NexusTypography.labelSmall.copy(color = colors.textTertiary, letterSpacing = 0.5.sp),

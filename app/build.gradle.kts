@@ -70,6 +70,9 @@ dependencies {
   // DataStore
   implementation(libs.androidx.datastore.preferences)
 
+  // On-Device LLM Inference (Google MediaPipe / Gemma)
+  implementation(libs.mediapipe.tasks.genai)
+
   // Networking, HTTP & SSE
   implementation(libs.okhttp)
   implementation(libs.okhttp.logging)

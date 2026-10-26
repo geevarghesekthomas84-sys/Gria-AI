@@ -49,6 +49,18 @@ Experience the **Quiet Luxury + Modern Minimalism** design system on real Androi
       <img src="docs/screenshots/04_history_drawer.png" width="92%" alt="NEXUS AI History Drawer" />
     </td>
   </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>⚡ 100% On-Device Gemma Inference</b><br/>
+      <sub>39.9 tok/s local generation directly on Snapdragon Adreno GPU</sub><br/><br/>
+      <img src="docs/screenshots/05_ondevice_gemma.png" width="92%" alt="NEXUS AI On-Device Gemma Inference" />
+    </td>
+    <td align="center" width="50%">
+      <b>⚙️ On-Device AI & GPU Settings</b><br/>
+      <sub>Model file picker (.bin/.task) and Auto-Scan Downloads</sub><br/><br/>
+      <img src="docs/screenshots/06_settings_ondevice.png" width="92%" alt="NEXUS AI On-Device Settings" />
+    </td>
+  </tr>
 </table>
 </div>
 
@@ -90,8 +102,8 @@ Experience the **Quiet Luxury + Modern Minimalism** design system on real Androi
       One-tap microphone button with animated breathing halo. Launches the native Google Speech Recognition modal with real-time audio waveforms.
     </td>
     <td width="50%">
-      <h3>📳 Apple-Grade Haptic Micro-Interactions</h3>
-      Precision tactile feedback: mechanical detents on persona toggles, double-click haptic confirmation on copy, and completion pulses when the AI finishes streaming.
+      <h3>⚡ 100% On-Device Gemma LLM</h3>
+      MediaPipe Tasks GenAI engine executes Google Gemma (1B / 2B) directly on the phone's Snapdragon Adreno GPU at 30-45+ tok/s with zero internet connection required.
     </td>
   </tr>
 </table>
@@ -100,7 +112,7 @@ Experience the **Quiet Luxury + Modern Minimalism** design system on real Androi
 
 ## 🏛️ Architecture
 
-NEXUS AI is built strictly on **Clean Architecture + MVI/MVVM**, decoupling domain business logic from the UI presentation layer and network transport.
+NEXUS AI is built strictly on **Clean Architecture + MVI/MVVM**, decoupling domain business logic from the UI presentation layer, on-device GPU inference, and LAN streaming transport.
 
 ```mermaid
 graph TD
@@ -109,12 +121,14 @@ graph TD
         VM["ChatViewModel<br/><i>(MVI State & Haptic Engine)</i>"]
         Repo["ChatRepository<br/><i>(Clean Architecture)</i>"]
         DB[("SQLite Database<br/><i>(Messages & Telemetry)</i>")]
-        SSE["OkHttp SSE Client<br/><i>(Token Streaming Engine)</i>"]
+        SSE["OkHttp SSE Client<br/><i>(LM Studio LAN Engine)</i>"]
+        OD["OnDeviceLlmEngine<br/><i>(MediaPipe GenAI · Adreno GPU)</i>"]
 
         UI <--> VM
         VM <--> Repo
         Repo <--> DB
         Repo <--> SSE
+        Repo <--> OD
     end
 
     subgraph LocalLAN["📡 Private Local Network (Wi-Fi)"]

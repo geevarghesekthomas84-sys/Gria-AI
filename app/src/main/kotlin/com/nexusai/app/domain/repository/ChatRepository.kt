@@ -1,5 +1,6 @@
 package com.nexusai.app.domain.repository
 
+import com.nexusai.app.core.llm.OnDeviceLlmEngine
 import com.nexusai.app.core.network.StreamEvent
 import com.nexusai.app.domain.model.AIModel
 import com.nexusai.app.domain.model.ConnectionStatus
@@ -9,6 +10,8 @@ import com.nexusai.app.domain.model.ServerConfig
 import kotlinx.coroutines.flow.Flow
 
 interface ChatRepository {
+    // On-Device Local LLM Engine
+    val onDeviceEngine: OnDeviceLlmEngine
     // Conversations
     fun getConversationsFlow(): Flow<List<Conversation>>
     suspend fun getConversations(): List<Conversation>
