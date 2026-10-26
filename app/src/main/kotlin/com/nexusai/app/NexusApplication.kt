@@ -9,6 +9,9 @@ import com.nexusai.app.core.telemetry.HardwareMonitor
 import com.nexusai.app.core.voice.OfflineVoiceEngine
 import com.nexusai.app.data.repository.ChatRepositoryImpl
 import com.nexusai.app.domain.repository.ChatRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class NexusApplication : Application() {
 
@@ -49,6 +52,10 @@ class NexusApplication : Application() {
             streamClient = streamClient,
             onDeviceEngine = onDeviceEngine
         )
+
+        CoroutineScope(Dispatchers.IO).launch {
+            settingsDataStore.migrateOldSystemPrompt()
+        }
     }
 
     companion object {

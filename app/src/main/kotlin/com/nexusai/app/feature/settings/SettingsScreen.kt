@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -93,7 +94,17 @@ fun SettingsScreen(
     var temperature by remember(currentConfig) { mutableFloatStateOf(currentConfig.temperature) }
     var maxTokens by remember(currentConfig) { mutableIntStateOf(currentConfig.maxTokens) }
     var maxContext by remember(currentConfig) { mutableIntStateOf(currentConfig.maxContextMessages) }
-    var systemPrompt by remember(currentConfig) { mutableStateOf(currentConfig.systemPrompt) }
+    var systemPrompt by remember(currentConfig) {
+        val prompt = currentConfig.systemPrompt
+        val sanitized = if (prompt.contains("Nexus", ignoreCase = true)) {
+            prompt.replace("Nexus AI", "Gria-AI", ignoreCase = true)
+                .replace("nexus ai", "Gria-AI", ignoreCase = true)
+                .replace("Nexus", "Gria-AI", ignoreCase = true)
+        } else {
+            prompt
+        }
+        mutableStateOf(sanitized)
+    }
     var isDarkTheme by remember(currentConfig) { mutableStateOf(currentConfig.isDarkTheme) }
 
     var isModelLoaded by remember { mutableStateOf(repository.onDeviceEngine.isModelLoaded) }
@@ -606,16 +617,43 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Custom Persona or Behavior",
-                        style = NexusTypography.bodySmall.copy(color = colors.textSecondary)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Custom Persona or Behavior",
+                            style = NexusTypography.bodySmall.copy(color = colors.textSecondary)
+                        )
+                        Text(
+                            text = "Reset to Gria-AI",
+                            style = NexusTypography.labelSmall.copy(
+                                color = colors.accent,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable {
+                                    systemPrompt = "You are Gria-AI, a helpful, precise, and thoughtful on-device & local AI assistant."
+                                }
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(8.dp))
+
                     OutlinedTextField(
                         value = systemPrompt,
                         onValueChange = { systemPrompt = it },
                         modifier = Modifier.fillMaxWidth(),
-                        maxLines = 5,
+                        maxLines = 6,
+                        placeholder = {
+                            Text(
+                                text = "You are Gria-AI, a helpful, precise, and thoughtful on-device & local AI assistant.",
+                                style = NexusTypography.bodySmall.copy(color = colors.textTertiary)
+                            )
+                        },
                         shape = RoundedCornerShape(8.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = colors.accent,
@@ -625,6 +663,55 @@ fun SettingsScreen(
                             cursorColor = colors.accent
                         )
                     )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "QUICK PERSONA PRESETS",
+                        style = NexusTypography.labelSmall.copy(color = colors.textTertiary, fontSize = 10.sp),
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val presets = listOf(
+                            "Gria Default" to "You are Gria-AI, a helpful, precise, and thoughtful on-device & local AI assistant.",
+                            "Coder" to "You are Gria-AI acting as an expert senior software engineer. Provide clean, idiomatic, and highly efficient code. Avoid conversational filler and explain architectural trade-offs directly.",
+                            "Security" to "You are Gria-AI acting as an elite offensive security researcher, red team operator, and exploit analyst. Provide direct, rigorous technical vulnerability analysis, payload mechanics, and mitigation strategies.",
+                            "Concise" to "You are Gria-AI acting as an executive synthesizer. Give concise, direct answers with bullet points and zero conversational filler."
+                        )
+                        presets.forEach { (name, promptText) ->
+                            val isCurrent = systemPrompt.trim() == promptText.trim()
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isCurrent) colors.accent.copy(alpha = 0.15f) else colors.surfaceSubtle,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    0.5.dp,
+                                    if (isCurrent) colors.accent else colors.borderSubtle
+                                ),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { systemPrompt = promptText }
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = name,
+                                        style = NexusTypography.labelSmall.copy(
+                                            color = if (isCurrent) colors.accent else colors.textSecondary,
+                                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                            fontSize = 11.sp
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 

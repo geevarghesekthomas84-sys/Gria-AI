@@ -112,6 +112,18 @@ class NexusDatabaseHelper(context: Context) : SQLiteOpenHelper(
         db.setForeignKeyConstraintsEnabled(true)
     }
 
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        try {
+            db.execSQL(
+                "UPDATE $TABLE_CONVERSATIONS SET $COL_CONV_SYSTEM_PROMPT = REPLACE($COL_CONV_SYSTEM_PROMPT, 'Nexus AI', 'Gria-AI') WHERE $COL_CONV_SYSTEM_PROMPT LIKE '%Nexus AI%'"
+            )
+            db.execSQL(
+                "UPDATE $TABLE_CONVERSATIONS SET $COL_CONV_SYSTEM_PROMPT = REPLACE($COL_CONV_SYSTEM_PROMPT, 'Nexus', 'Gria-AI') WHERE $COL_CONV_SYSTEM_PROMPT LIKE '%Nexus%'"
+            )
+        } catch (_: Exception) {}
+    }
+
     // --- Conversation Operations ---
 
     suspend fun insertOrUpdateConversation(conversation: Conversation) = withContext(Dispatchers.IO) {
