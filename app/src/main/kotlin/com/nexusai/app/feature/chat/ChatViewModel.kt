@@ -12,6 +12,7 @@ import com.nexusai.app.domain.model.MessageStatus
 import com.nexusai.app.domain.model.ServerConfig
 import com.nexusai.app.domain.repository.ChatRepository
 import com.nexusai.app.domain.model.PersonaPreset
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
 
 data class ChatUiState(
@@ -264,6 +266,7 @@ class ChatViewModel(
             val responseAccumulator = StringBuilder()
             var tokensCount = 0
             val streamStartTime = System.currentTimeMillis()
+            var lastUiUpdateTime = 0L
 
             try {
                 repository.streamChat(
@@ -279,12 +282,18 @@ class ChatViewModel(
                         is StreamEvent.Token -> {
                             tokensCount++
                             responseAccumulator.append(event.text)
-                            updateAssistantMessage(
-                                convId = convId,
-                                msgId = assistantMsgId,
-                                content = responseAccumulator.toString(),
-                                status = MessageStatus.STREAMING
-                            )
+                            val now = System.currentTimeMillis()
+                            // Throttle UI recompositions to ~35ms intervals to keep the main thread smooth
+                            if (now - lastUiUpdateTime > 35L) {
+                                lastUiUpdateTime = now
+                                updateAssistantMessage(
+                                    convId = convId,
+                                    msgId = assistantMsgId,
+                                    content = responseAccumulator.toString(),
+                                    status = MessageStatus.STREAMING,
+                                    persistToDb = false
+                                )
+                            }
                         }
                         is StreamEvent.Completed -> {
                             val durationMs = (System.currentTimeMillis() - streamStartTime).coerceAtLeast(1L)
@@ -297,7 +306,8 @@ class ChatViewModel(
                                 status = MessageStatus.COMPLETE,
                                 tokensCount = tokensCount,
                                 durationMs = durationMs,
-                                tokPerSec = tokPerSec
+                                tokPerSec = tokPerSec,
+                                persistToDb = true
                             )
                             _uiState.value = _uiState.value.copy(isStreaming = false)
                         }
@@ -316,7 +326,8 @@ class ChatViewModel(
                                 errorMessage = errorText,
                                 tokensCount = if (tokensCount > 0) tokensCount else null,
                                 durationMs = durationMs,
-                                tokPerSec = tokPerSec
+                                tokPerSec = tokPerSec,
+                                persistToDb = true
                             )
                             _uiState.value = _uiState.value.copy(
                                 isStreaming = false,
@@ -334,7 +345,8 @@ class ChatViewModel(
                     status = MessageStatus.ERROR,
                     errorMessage = e.localizedMessage,
                     tokensCount = if (tokensCount > 0) tokensCount else null,
-                    durationMs = durationMs
+                    durationMs = durationMs,
+                    persistToDb = true
                 )
                 _uiState.value = _uiState.value.copy(isStreaming = false)
             }
@@ -349,7 +361,8 @@ class ChatViewModel(
         errorMessage: String? = null,
         tokensCount: Int? = null,
         durationMs: Long? = null,
-        tokPerSec: Float? = null
+        tokPerSec: Float? = null,
+        persistToDb: Boolean = false
     ) {
         val updated = Message(
             id = msgId,
@@ -362,7 +375,13 @@ class ChatViewModel(
             generationDurationMs = durationMs,
             tokensPerSecond = tokPerSec
         )
-        repository.saveMessage(updated)
+
+        // Only persist to SQLite on Completion/Error on Dispatchers.IO to prevent main-thread ANR
+        if (persistToDb) {
+            withContext(Dispatchers.IO) {
+                repository.saveMessage(updated)
+            }
+        }
 
         // Update in-memory state
         val currentMsgs = _uiState.value.messages.map {

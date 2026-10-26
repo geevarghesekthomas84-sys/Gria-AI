@@ -392,6 +392,7 @@ fun CodeBlock(
             ) {
                 Text(
                     text = highlightedCode,
+                    color = colors.codeText,
                     style = NexusTypography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
                         lineHeight = 20.sp
@@ -454,129 +455,143 @@ object CodeHighlighter {
         "desc", "having", "limit", "offset", "union", "distinct", "as", "and", "or", "not"
     )
 
+    // Pre-allocated static SpanStyles to eliminate per-token heap allocations
+    private val KEYWORD_STYLE = SpanStyle(color = Color(0xFF6B4BA3), fontWeight = FontWeight.SemiBold)
+    private val STRING_STYLE = SpanStyle(color = Color(0xFF9E4B29))
+    private val COMMENT_STYLE = SpanStyle(color = Color(0xFF768278), fontStyle = FontStyle.Italic)
+    private val NUMBER_STYLE = SpanStyle(color = Color(0xFF2C687A))
+    private val TYPE_STYLE = SpanStyle(color = Color(0xFF38557A), fontWeight = FontWeight.SemiBold)
+
     fun highlight(code: String, language: String, defaultColor: Color): AnnotatedString {
-        val lang = language.lowercase().trim()
-        val keywords = when (lang) {
-            "kotlin", "kt" -> KOTLIN_KEYWORDS
-            "python", "py" -> PYTHON_KEYWORDS
-            "rust", "rs" -> RUST_KEYWORDS
-            "javascript", "js", "typescript", "ts" -> JS_KEYWORDS
-            "bash", "sh", "shell", "zsh" -> BASH_KEYWORDS
-            "sql" -> SQL_KEYWORDS
-            else -> KOTLIN_KEYWORDS + PYTHON_KEYWORDS + JS_KEYWORDS
-        }
+        if (code.isEmpty()) return AnnotatedString("")
+        if (code.length > 50000) return AnnotatedString(code)
 
-        // Quiet luxury syntax palette (refined, muted, elegant)
-        val keywordColor = Color(0xFF6B4BA3)   // Soft slate violet
-        val stringColor = Color(0xFF9E4B29)    // Muted terracotta / warm amber
-        val commentColor = Color(0xFF768278)   // Muted sage slate
-        val numberColor = Color(0xFF2C687A)    // Deep tranquil teal
-        val typeColor = Color(0xFF38557A)      // Restrained midnight slate
+        return try {
+            val lang = language.lowercase().trim()
+            val keywords = when (lang) {
+                "kotlin", "kt" -> KOTLIN_KEYWORDS
+                "python", "py" -> PYTHON_KEYWORDS
+                "rust", "rs" -> RUST_KEYWORDS
+                "javascript", "js", "typescript", "ts" -> JS_KEYWORDS
+                "bash", "sh", "shell", "zsh" -> BASH_KEYWORDS
+                "sql" -> SQL_KEYWORDS
+                else -> KOTLIN_KEYWORDS + PYTHON_KEYWORDS + JS_KEYWORDS
+            }
 
-        val builder = AnnotatedString.Builder()
-        val lines = code.lines()
+            val builder = AnnotatedString.Builder()
+            val lines = code.lines()
 
-        lines.forEachIndexed { lineIdx, line ->
-            var i = 0
-            val len = line.length
+            lines.forEachIndexed { lineIdx, line ->
+                var i = 0
+                val len = line.length
 
-            while (i < len) {
-                // Check for single line comments: // or #
-                if ((line.startsWith("//", i) && lang != "python") ||
-                    (line.startsWith("#", i) && (lang == "python" || lang == "bash" || lang == "sh" || lang == "shell" || lang == "yaml" || lang == "yml"))
-                ) {
-                    val commentText = line.substring(i)
-                    builder.pushStyle(SpanStyle(color = commentColor, fontStyle = FontStyle.Italic))
-                    builder.append(commentText)
-                    builder.pop()
-                    i = len
-                    break
-                }
+                while (i < len) {
+                    // Check for single line comments: // or #
+                    if ((line.startsWith("//", i) && lang != "python") ||
+                        (line.startsWith("#", i) && (lang == "python" || lang == "bash" || lang == "sh" || lang == "shell" || lang == "yaml" || lang == "yml"))
+                    ) {
+                        val commentText = line.substring(i)
+                        builder.pushStyle(COMMENT_STYLE)
+                        builder.append(commentText)
+                        builder.pop()
+                        i = len
+                        break
+                    }
 
-                // Check for strings: "..." or '...'
-                val c = line[i]
-                if (c == '"' || c == '\'') {
-                    val quote = c
-                    var j = i + 1
-                    var escaped = false
-                    while (j < len) {
-                        if (line[j] == '\\' && !escaped) {
-                            escaped = true
-                        } else if (line[j] == quote && !escaped) {
+                    // Check for strings: "..." or '...'
+                    val c = line[i]
+                    if (c == '"' || c == '\'') {
+                        val quote = c
+                        var j = i + 1
+                        var escaped = false
+                        while (j < len) {
+                            if (line[j] == '\\' && !escaped) {
+                                escaped = true
+                            } else if (line[j] == quote && !escaped) {
+                                j++
+                                break
+                            } else {
+                                escaped = false
+                            }
                             j++
-                            break
-                        } else {
-                            escaped = false
                         }
-                        j++
+                        val strText = line.substring(i, j.coerceAtMost(len))
+                        builder.pushStyle(STRING_STYLE)
+                        builder.append(strText)
+                        builder.pop()
+                        i = j
+                        continue
                     }
-                    val strText = line.substring(i, j.coerceAtMost(len))
-                    builder.pushStyle(SpanStyle(color = stringColor))
-                    builder.append(strText)
-                    builder.pop()
-                    i = j
-                    continue
+
+                    // Check for Numbers
+                    if (c.isDigit() && (i == 0 || !line[i - 1].isLetterOrDigit())) {
+                        var j = i
+                        while (j < len && (line[j].isLetterOrDigit() || line[j] == '.')) {
+                            j++
+                        }
+                        builder.pushStyle(NUMBER_STYLE)
+                        builder.append(line.substring(i, j))
+                        builder.pop()
+                        i = j
+                        continue
+                    }
+
+                    // Check for Words (Keywords, Types, Identifiers)
+                    if (c.isLetter() || c == '_' || c == '@') {
+                        var j = i
+                        while (j < len && (line[j].isLetterOrDigit() || line[j] == '_')) {
+                            j++
+                        }
+                        val word = line.substring(i, j)
+                        when {
+                            word.startsWith("@") -> {
+                                builder.pushStyle(TYPE_STYLE)
+                                builder.append(word)
+                                builder.pop()
+                            }
+                            word.lowercase() in keywords -> {
+                                builder.pushStyle(KEYWORD_STYLE)
+                                builder.append(word)
+                                builder.pop()
+                            }
+                            word.firstOrNull()?.isUpperCase() == true && word.length > 1 -> {
+                                builder.pushStyle(TYPE_STYLE)
+                                builder.append(word)
+                                builder.pop()
+                            }
+                            else -> {
+                                // Default color does not need any SpanStyle allocation - Text composable handles it
+                                builder.append(word)
+                            }
+                        }
+                        i = j
+                        continue
+                    }
+
+                    // Batch consecutive whitespace / punctuation without SpanStyle allocations
+                    val startPunct = i
+                    while (i < len) {
+                        val ch = line[i]
+                        if (ch.isLetterOrDigit() || ch == '_' || ch == '@' || ch == '"' || ch == '\'') break
+                        if (line.startsWith("//", i) || line.startsWith("#", i)) break
+                        i++
+                    }
+                    if (i > startPunct) {
+                        builder.append(line.substring(startPunct, i))
+                    } else {
+                        builder.append(c.toString())
+                        i++
+                    }
                 }
 
-                // Check for Numbers
-                if (c.isDigit() && (i == 0 || !line[i - 1].isLetterOrDigit())) {
-                    var j = i
-                    while (j < len && (line[j].isLetterOrDigit() || line[j] == '.')) {
-                        j++
-                    }
-                    builder.pushStyle(SpanStyle(color = numberColor))
-                    builder.append(line.substring(i, j))
-                    builder.pop()
-                    i = j
-                    continue
+                if (lineIdx < lines.size - 1) {
+                    builder.append("\n")
                 }
-
-                // Check for Words (Keywords, Types, Identifiers)
-                if (c.isLetter() || c == '_' || c == '@') {
-                    var j = i
-                    while (j < len && (line[j].isLetterOrDigit() || line[j] == '_')) {
-                        j++
-                    }
-                    val word = line.substring(i, j)
-                    when {
-                        word.startsWith("@") -> {
-                            builder.pushStyle(SpanStyle(color = typeColor, fontWeight = FontWeight.SemiBold))
-                            builder.append(word)
-                            builder.pop()
-                        }
-                        word.lowercase() in keywords -> {
-                            builder.pushStyle(SpanStyle(color = keywordColor, fontWeight = FontWeight.SemiBold))
-                            builder.append(word)
-                            builder.pop()
-                        }
-                        word.firstOrNull()?.isUpperCase() == true && word.length > 1 -> {
-                            // Class / Type name convention
-                            builder.pushStyle(SpanStyle(color = typeColor))
-                            builder.append(word)
-                            builder.pop()
-                        }
-                        else -> {
-                            builder.pushStyle(SpanStyle(color = defaultColor))
-                            builder.append(word)
-                            builder.pop()
-                        }
-                    }
-                    i = j
-                    continue
-                }
-
-                // Normal punctuation / whitespace
-                builder.pushStyle(SpanStyle(color = defaultColor))
-                builder.append(c.toString())
-                builder.pop()
-                i++
             }
 
-            if (lineIdx < lines.size - 1) {
-                builder.append("\n")
-            }
+            builder.toAnnotatedString()
+        } catch (t: Throwable) {
+            AnnotatedString(code)
         }
-
-        return builder.toAnnotatedString()
     }
 }
