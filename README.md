@@ -11,7 +11,13 @@ A state-of-the-art, 100% private Android AI chat application delivering a ChatGP
 [![Backend](https://img.shields.io/badge/Inference-LM%20Studio%20Local%20LAN-F89820?style=for-the-badge&logo=openai&logoColor=white)](https://lmstudio.ai)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)](LICENSE)
 
-<br/>
+<br/><br/>
+
+<a href="#-interface-gallery">
+  <img src="docs/assets/gria_ai_demo.gif" width="460" alt="Gria-AI Live Demo Animation" />
+</a>
+
+<br/><br/>
 
 [ ✨ Highlights ](#-highlights) • [ 📱 Interface Gallery ](#-interface-gallery) • [ 🏛️ Architecture ](#️-architecture) • [ 🚀 Quick Start ](#-quick-start) • [ 👨‍💻 Author ](#-author--credits)
 
@@ -200,8 +206,8 @@ graph TD
 ### 3. Clone & Build
 ```powershell
 # Clone the repository
-git clone https://github.com/geevarghesekthomas84-sys/nexus-ai.git
-cd nexus-ai
+git clone https://github.com/geevarghesekthomas84-sys/Gria-AI.git
+cd Gria-AI
 
 # Compile the debug APK
 .\gradlew.bat assembleDebug
