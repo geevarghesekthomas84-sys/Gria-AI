@@ -24,15 +24,19 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.nexusai.app.NexusApplication
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -136,12 +140,34 @@ fun MessageBubble(
                         }
                     }
 
+                    val voiceEngine = remember { NexusApplication.instance.voiceEngine }
+                    val isSpeaking by voiceEngine.isSpeaking.collectAsState()
+                    val currentSpeakingId by voiceEngine.currentSpeakingId.collectAsState()
+                    val isThisSpeaking = isSpeaking && currentSpeakingId == message.id
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        IconButton(
+                            onClick = {
+                                NexusHaptic.click(view)
+                                voiceEngine.speak(message.id, message.content)
+                            },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isThisSpeaking) Icons.Default.VolumeOff else Icons.Default.VolumeUp,
+                                contentDescription = if (isThisSpeaking) "Stop voice" else "Read aloud",
+                                tint = if (isThisSpeaking) colors.accent else colors.textTertiary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
                         IconButton(
                             onClick = {
                                 NexusHaptic.confirm(view)

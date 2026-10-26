@@ -76,6 +76,7 @@ fun MessageComposer(
     onSend: () -> Unit,
     onStop: () -> Unit,
     isStreaming: Boolean,
+    onStartVoiceLive: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     placeholder: String = "Message Nexus..."
 ) {
@@ -223,7 +224,14 @@ fun MessageComposer(
                             .size(32.dp)
                             .clip(CircleShape)
                             .background(if (isListening) colors.accent else colors.surfaceSubtle)
-                            .clickable(onClick = toggleVoice),
+                            .clickable {
+                                if (onStartVoiceLive != null) {
+                                    NexusHaptic.confirm(view)
+                                    onStartVoiceLive()
+                                } else {
+                                    toggleVoice()
+                                }
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(

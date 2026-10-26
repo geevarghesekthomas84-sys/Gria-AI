@@ -14,6 +14,9 @@
         <intent>
             <action android:name="android.intent.action.RECOGNIZE_SPEECH" />
         </intent>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
     </queries>
 
     <application

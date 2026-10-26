@@ -5,6 +5,8 @@ import com.nexusai.app.core.database.NexusDatabaseHelper
 import com.nexusai.app.core.datastore.SettingsDataStore
 import com.nexusai.app.core.llm.OnDeviceLlmEngine
 import com.nexusai.app.core.network.LmStudioStreamClient
+import com.nexusai.app.core.telemetry.HardwareMonitor
+import com.nexusai.app.core.voice.OfflineVoiceEngine
 import com.nexusai.app.data.repository.ChatRepositoryImpl
 import com.nexusai.app.domain.repository.ChatRepository
 
@@ -22,6 +24,12 @@ class NexusApplication : Application() {
     lateinit var onDeviceEngine: OnDeviceLlmEngine
         private set
 
+    lateinit var voiceEngine: OfflineVoiceEngine
+        private set
+
+    lateinit var hardwareMonitor: HardwareMonitor
+        private set
+
     lateinit var chatRepository: ChatRepository
         private set
 
@@ -33,6 +41,8 @@ class NexusApplication : Application() {
         settingsDataStore = SettingsDataStore(this)
         streamClient = LmStudioStreamClient()
         onDeviceEngine = OnDeviceLlmEngine(this)
+        voiceEngine = OfflineVoiceEngine(this)
+        hardwareMonitor = HardwareMonitor(this, onDeviceEngine)
         chatRepository = ChatRepositoryImpl(
             dbHelper = databaseHelper,
             dataStore = settingsDataStore,

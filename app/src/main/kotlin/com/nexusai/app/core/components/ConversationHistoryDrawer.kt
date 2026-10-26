@@ -60,6 +60,7 @@ fun ConversationHistoryDrawer(
     onDeleteConversation: (String) -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAbout: () -> Unit,
+    onOpenHardwareMonitor: (() -> Unit)? = null,
     onCloseDrawer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -318,6 +319,26 @@ fun ConversationHistoryDrawer(
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
+
+                if (onOpenHardwareMonitor != null) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                onOpenHardwareMonitor()
+                                onCloseDrawer()
+                            }
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "⚡ Hardware",
+                            style = NexusTypography.labelMedium.copy(color = colors.accent)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+                }
 
                 Row(
                     modifier = Modifier

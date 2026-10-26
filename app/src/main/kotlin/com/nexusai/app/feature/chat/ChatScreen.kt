@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,8 +51,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
+import com.nexusai.app.core.components.HardwareMonitorSheet
+import com.nexusai.app.core.components.NexusVoiceLiveDialog
+import com.nexusai.app.domain.model.MessageRole
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,6 +105,9 @@ fun ChatScreen(
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
     val view = LocalView.current
+
+    var isHardwareSheetOpen by remember { mutableStateOf(false) }
+    var isVoiceLiveOpen by remember { mutableStateOf(false) }
 
     // Smooth animation when a new message is added
     LaunchedEffect(uiState.messages.size) {
@@ -153,6 +162,7 @@ fun ChatScreen(
                 onDeleteConversation = { convId -> viewModel.deleteConversation(convId) },
                 onOpenSettings = onNavigateToSettings,
                 onOpenAbout = onNavigateToAbout,
+                onOpenHardwareMonitor = { isHardwareSheetOpen = true },
                 onCloseDrawer = { scope.launch { drawerState.close() } }
             )
         }
@@ -224,8 +234,24 @@ fun ChatScreen(
                                     isOnDevice = uiState.isOnDeviceSelected,
                                     onClick = {
                                         NexusHaptic.click(view)
-                                        viewModel.pingServer()
+                                        isHardwareSheetOpen = true
                                     }
+                                )
+                            }
+
+                            // Two-Way Live Voice Assistant button
+                            IconButton(
+                                onClick = {
+                                    NexusHaptic.confirm(view)
+                                    isVoiceLiveOpen = true
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = "Live Voice Assistant",
+                                    tint = colors.accent,
+                                    modifier = Modifier.size(20.dp)
                                 )
                             }
 
@@ -292,6 +318,7 @@ fun ChatScreen(
                         onSend = { viewModel.sendMessage() },
                         onStop = { viewModel.stopStreaming() },
                         isStreaming = uiState.isStreaming,
+                        onStartVoiceLive = { isVoiceLiveOpen = true },
                         placeholder = "Message Nexus..."
                     )
                 }
@@ -398,6 +425,26 @@ fun ChatScreen(
             onRefresh = { viewModel.refreshModels() },
             onDismiss = { viewModel.toggleModelSelector(false) },
             isLoading = uiState.isRefreshingModels
+        )
+    }
+
+    // Hardware & Memory Live Monitor Bottom Sheet
+    if (isHardwareSheetOpen) {
+        HardwareMonitorSheet(
+            onDismiss = { isHardwareSheetOpen = false }
+        )
+    }
+
+    // Interactive Two-Way Offline Voice Assistant
+    if (isVoiceLiveOpen) {
+        val lastAssistant = uiState.messages.lastOrNull { it.role == MessageRole.ASSISTANT }?.content
+        NexusVoiceLiveDialog(
+            onDismiss = { isVoiceLiveOpen = false },
+            onSendMessage = { spokenText ->
+                viewModel.sendMessage(spokenText)
+            },
+            lastAssistantResponse = lastAssistant,
+            isAssistantStreaming = uiState.isStreaming
         )
     }
 }
