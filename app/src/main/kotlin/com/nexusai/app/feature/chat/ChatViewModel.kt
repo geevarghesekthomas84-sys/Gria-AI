@@ -39,7 +39,10 @@ data class ChatUiState(
     val isRefreshingModels: Boolean = false,
     val serverPingMs: Long? = null,
     val activePersona: PersonaPreset = PersonaPreset.DEFAULT
-)
+) {
+    val isOnDeviceSelected: Boolean
+        get() = selectedModel.startsWith("ondevice:") || selectedModel == "ondevice:gemma"
+}
 
 class ChatViewModel(
     private val repository: ChatRepository
@@ -106,7 +109,7 @@ class ChatViewModel(
         viewModelScope.launch {
             val config = _uiState.value.serverConfig
             val start = System.currentTimeMillis()
-            val result = repository.fetchModels(config.baseUrl)
+            val result = repository.testConnection(config.baseUrl)
             val latency = System.currentTimeMillis() - start
             if (result.isSuccess) {
                 _uiState.value = _uiState.value.copy(
@@ -116,7 +119,7 @@ class ChatViewModel(
             } else {
                 _uiState.value = _uiState.value.copy(
                     serverPingMs = null,
-                    connectionStatus = ConnectionStatus.ERROR
+                    connectionStatus = if (_uiState.value.isOnDeviceSelected) ConnectionStatus.CONNECTED else ConnectionStatus.DISCONNECTED
                 )
             }
         }
@@ -130,16 +133,19 @@ class ChatViewModel(
             )
             val config = _uiState.value.serverConfig
             val start = System.currentTimeMillis()
-            val result = repository.fetchModels(config.baseUrl)
+            val remoteResult = repository.testConnection(config.baseUrl)
             val latency = System.currentTimeMillis() - start
 
-            if (result.isSuccess) {
-                val models = result.getOrNull().orEmpty()
-                val selected = if (_uiState.value.selectedModel.isNotEmpty() && models.any { it.id == _uiState.value.selectedModel }) {
-                    _uiState.value.selectedModel
-                } else {
-                    models.firstOrNull()?.id ?: config.defaultModel
-                }
+            val modelsResult = repository.fetchModels(config.baseUrl)
+            val models = modelsResult.getOrNull().orEmpty()
+
+            val selected = if (_uiState.value.selectedModel.isNotEmpty() && models.any { it.id == _uiState.value.selectedModel }) {
+                _uiState.value.selectedModel
+            } else {
+                models.firstOrNull()?.id ?: config.defaultModel
+            }
+
+            if (remoteResult.isSuccess) {
                 _uiState.value = _uiState.value.copy(
                     availableModels = models,
                     selectedModel = selected,
@@ -149,11 +155,13 @@ class ChatViewModel(
                     isRefreshingModels = false
                 )
             } else {
-                val error = result.exceptionOrNull()
+                val isOnDevice = selected.startsWith("ondevice:") || selected == "ondevice:gemma"
                 _uiState.value = _uiState.value.copy(
-                    connectionStatus = ConnectionStatus.ERROR,
+                    availableModels = models,
+                    selectedModel = selected,
+                    connectionStatus = if (isOnDevice) ConnectionStatus.CONNECTED else ConnectionStatus.DISCONNECTED,
                     serverPingMs = null,
-                    errorMessage = error?.localizedMessage ?: "Failed to connect to LM Studio",
+                    errorMessage = null,
                     isRefreshingModels = false
                 )
             }

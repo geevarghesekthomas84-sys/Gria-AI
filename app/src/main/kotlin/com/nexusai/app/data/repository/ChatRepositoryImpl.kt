@@ -48,11 +48,16 @@ class ChatRepositoryImpl(
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private fun createApi(baseUrl: String): LmStudioApi {
+    private val pingClient = OkHttpClient.Builder()
+        .connectTimeout(2, TimeUnit.SECONDS)
+        .readTimeout(3, TimeUnit.SECONDS)
+        .build()
+
+    private fun createApi(baseUrl: String, client: OkHttpClient = okHttpClient): LmStudioApi {
         val sanitizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
         return Retrofit.Builder()
             .baseUrl(sanitizedUrl)
-            .client(okHttpClient)
+            .client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
             .create(LmStudioApi::class.java)
@@ -108,7 +113,7 @@ class ChatRepositoryImpl(
 
     override suspend fun testConnection(baseUrl: String): Result<List<AIModel>> = withContext(Dispatchers.IO) {
         try {
-            val api = createApi(baseUrl)
+            val api = createApi(baseUrl, pingClient)
             val response = api.getModels()
             val models = response.data.map {
                 AIModel(id = it.id, objectType = it.objectType, ownedBy = it.ownedBy)

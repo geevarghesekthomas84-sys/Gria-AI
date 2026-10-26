@@ -221,6 +221,7 @@ fun ChatScreen(
                                 ServerLatencyBadge(
                                     status = uiState.connectionStatus,
                                     pingMs = uiState.serverPingMs,
+                                    isOnDevice = uiState.isOnDeviceSelected,
                                     onClick = {
                                         NexusHaptic.click(view)
                                         viewModel.pingServer()
@@ -409,18 +410,20 @@ fun ChatScreen(
 fun ServerLatencyBadge(
     status: ConnectionStatus,
     pingMs: Long?,
+    isOnDevice: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalNexusColors.current
-    val (dotColor, text) = when (status) {
-        ConnectionStatus.CONNECTED -> {
+    val (dotColor, text) = when {
+        isOnDevice -> colors.statusSuccess to "local"
+        status == ConnectionStatus.CONNECTED -> {
             val ping = pingMs ?: 0L
             val color = if (ping < 150) colors.statusSuccess else Color(0xFFD97706)
             color to if (pingMs != null) "${pingMs}ms" else "online"
         }
-        ConnectionStatus.CONNECTING -> colors.textTertiary to "..."
-        ConnectionStatus.DISCONNECTED, ConnectionStatus.ERROR -> colors.statusError to "offline"
+        status == ConnectionStatus.CONNECTING -> colors.textTertiary to "..."
+        else -> colors.statusError to "offline"
     }
 
     Row(
