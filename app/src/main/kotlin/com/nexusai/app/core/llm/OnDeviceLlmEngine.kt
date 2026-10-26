@@ -40,34 +40,47 @@ class OnDeviceLlmEngine(private val context: Context) {
         tryAutoLoadAvailableModel()
     }
 
-    fun tryAutoLoadAvailableModel(): Boolean {
-        if (isModelLoaded) return true
+    fun discoverAllAvailableModels(): List<File> {
+        val candidateDirs = listOfNotNull(
+            File("/sdcard/models"),
+            File(Environment.getExternalStorageDirectory(), "models"),
+            File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "models"),
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+            File(context.filesDir, "models"),
+            context.getExternalFilesDir("models")
+        )
 
-        // 1. Check internal files/models
-        val modelsDir = File(context.filesDir, "models")
-        if (modelsDir.exists()) {
-            val candidate = modelsDir.listFiles { file ->
-                file.isFile && (file.name.endsWith(".bin") || file.name.endsWith(".task"))
-            }?.firstOrNull()
-
-            if (candidate != null) {
-                val res = loadModel(candidate)
-                if (res.isSuccess) return true
+        val filesFound = mutableListOf<File>()
+        for (dir in candidateDirs) {
+            try {
+                if (dir.exists() && dir.isDirectory) {
+                    dir.listFiles { file ->
+                        file.isFile && (file.name.endsWith(".bin") || file.name.endsWith(".task"))
+                    }?.let { filesFound.addAll(it) }
+                }
+            } catch (e: Exception) {
+                Log.w("OnDeviceLlmEngine", "Error scanning directory: ${dir.absolutePath}", e)
             }
         }
 
-        // 2. Check public Downloads folder
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        if (downloadsDir != null && downloadsDir.exists()) {
-            val candidate = downloadsDir.listFiles { file ->
-                file.isFile && (file.name.contains("gemma", ignoreCase = true) && 
-                        (file.name.endsWith(".bin") || file.name.endsWith(".task")))
-            }?.firstOrNull()
+        // Deduplicate and prioritize:
+        // 1. GPU models first (avoids OpenCL missing on CPU-only files)
+        // 2. INT4 models before INT8 (prevents OOM memory kill)
+        // 3. Gemma models first
+        return filesFound.distinctBy { it.name }.sortedWith(
+            compareByDescending<File> { it.name.contains("gpu", ignoreCase = true) }
+                .thenBy { it.name.contains("int8", ignoreCase = true) }
+                .thenByDescending { it.name.contains("gemma", ignoreCase = true) }
+        )
+    }
 
-            if (candidate != null) {
-                val res = loadModel(candidate)
-                if (res.isSuccess) return true
-            }
+    fun tryAutoLoadAvailableModel(): Boolean {
+        if (isModelLoaded) return true
+
+        val candidates = discoverAllAvailableModels()
+        for (candidate in candidates) {
+            val res = loadModel(candidate)
+            if (res.isSuccess) return true
         }
 
         return false
@@ -86,9 +99,10 @@ class OnDeviceLlmEngine(private val context: Context) {
 
             close()
 
+            // 1024 tokens balances performance and device memory safety (prevents OOM on 8-bit/2B models)
             val options = LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(modelFile.absolutePath)
-                .setMaxTokens(2048)
+                .setMaxTokens(1024)
                 .setTemperature(0.7f)
                 .setTopK(40)
                 .setResultListener { partial, done ->
@@ -104,10 +118,10 @@ class OnDeviceLlmEngine(private val context: Context) {
             currentModelPath = modelFile.absolutePath
             Log.i("OnDeviceLlmEngine", "Successfully loaded on-device model from ${modelFile.absolutePath}")
             Result.success(Unit)
-        } catch (e: Exception) {
-            Log.e("OnDeviceLlmEngine", "Failed to load on-device model", e)
+        } catch (t: Throwable) {
+            Log.e("OnDeviceLlmEngine", "Failed to load on-device model from ${modelFile.absolutePath}", t)
             close()
-            Result.failure(e)
+            Result.failure(t)
         }
     }
 

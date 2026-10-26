@@ -1,8 +1,13 @@
 package com.nexusai.app.feature.settings
 
+import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.widget.Toast
+import java.io.File
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -95,6 +100,14 @@ fun SettingsScreen(
     var loadedModelName by remember { mutableStateOf(repository.onDeviceEngine.loadedModelName) }
     var isImportingModel by remember { mutableStateOf(false) }
     var importProgress by remember { mutableFloatStateOf(0f) }
+    var discoveredModels by remember { mutableStateOf(repository.onDeviceEngine.discoverAllAvailableModels()) }
+    var hasAllFilesAccess by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Environment.isExternalStorageManager()
+            } else true
+        )
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -335,16 +348,20 @@ fun SettingsScreen(
 
                         OutlinedButton(
                             onClick = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                    hasAllFilesAccess = Environment.isExternalStorageManager()
+                                }
                                 val found = repository.onDeviceEngine.tryAutoLoadAvailableModel()
                                 isModelLoaded = repository.onDeviceEngine.isModelLoaded
                                 loadedModelName = repository.onDeviceEngine.loadedModelName
+                                discoveredModels = repository.onDeviceEngine.discoverAllAvailableModels()
                                 if (found) {
                                     scope.launch {
                                         repository.setDefaultModel("ondevice:gemma")
                                     }
-                                    Toast.makeText(context, "Loaded $loadedModelName from storage!", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Loaded $loadedModelName onto Adreno GPU!", Toast.LENGTH_SHORT).show()
                                 } else {
-                                    Toast.makeText(context, "No Gemma model found in Downloads", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "No Gemma model found in /sdcard/models or Downloads", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier.weight(1f),
@@ -355,6 +372,123 @@ fun SettingsScreen(
                                 text = "Auto-Scan",
                                 style = NexusTypography.labelSmall.copy(color = colors.textPrimary)
                             )
+                        }
+                    }
+
+                    if (!hasAllFilesAccess) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(colors.accent.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                                .clickable {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                        try {
+                                            val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                                                data = Uri.parse("package:${context.packageName}")
+                                            }
+                                            context.startActivity(intent)
+                                        } catch (e: Exception) {
+                                            val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                                            context.startActivity(intent)
+                                        }
+                                    }
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null, tint = colors.accent, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Tap to grant All Files Access to read /sdcard/models",
+                                style = NexusTypography.labelSmall.copy(color = colors.accent)
+                            )
+                        }
+                    }
+
+                    if (discoveredModels.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "AVAILABLE LOCAL MODELS (${discoveredModels.size})",
+                            style = NexusTypography.labelSmall.copy(
+                                color = colors.textTertiary,
+                                letterSpacing = 0.5.sp,
+                                fontSize = 10.sp
+                            ),
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+
+                        discoveredModels.forEach { modelFile ->
+                            val isCurrent = modelFile.name == loadedModelName
+                            val isGpu = modelFile.name.contains("gpu", ignoreCase = true)
+                            val fileSizeGb = String.format("%.2f", modelFile.length() / (1024.0 * 1024 * 1024))
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isCurrent) colors.accent.copy(alpha = 0.12f) else colors.surfaceSubtle,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    0.5.dp,
+                                    if (isCurrent) colors.accent else colors.borderSubtle
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clickable {
+                                        scope.launch {
+                                            Toast.makeText(context, "Loading ${modelFile.name}...", Toast.LENGTH_SHORT).show()
+                                            val res = repository.onDeviceEngine.loadModel(modelFile)
+                                            if (res.isSuccess) {
+                                                isModelLoaded = true
+                                                loadedModelName = modelFile.name
+                                                repository.setDefaultModel("ondevice:gemma")
+                                                Toast.makeText(context, "Loaded ${modelFile.name} successfully!", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                val msg = res.exceptionOrNull()?.localizedMessage ?: "Failed to initialize"
+                                                Toast.makeText(context, "Error: $msg", Toast.LENGTH_LONG).show()
+                                            }
+                                        }
+                                    }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = modelFile.name,
+                                            style = NexusTypography.bodySmall.copy(
+                                                color = colors.textPrimary,
+                                                fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Normal
+                                            ),
+                                            maxLines = 1
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                text = "$fileSizeGb GB",
+                                                style = NexusTypography.labelSmall.copy(color = colors.textTertiary)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = if (isGpu) "⚡ GPU Accelerated" else "CPU",
+                                                style = NexusTypography.labelSmall.copy(
+                                                    color = if (isGpu) colors.accent else colors.textTertiary
+                                                )
+                                            )
+                                        }
+                                    }
+
+                                    if (isCurrent) {
+                                        Text(
+                                            text = "ACTIVE",
+                                            style = NexusTypography.labelSmall.copy(
+                                                color = colors.accent,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
