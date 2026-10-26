@@ -27,38 +27,50 @@ Experience the **Quiet Luxury + Modern Minimalism** design system on real Androi
 <table>
   <tr>
     <td align="center" width="50%">
-      <b>✦ Quiet Luxury Welcome Screen</b><br/>
-      <sub>Warm-white palette (#FAFAF8), persona pills, and ping status</sub><br/><br/>
-      <img src="docs/screenshots/01_home_screen.png" width="92%" alt="NEXUS AI Home Screen" />
+      <b>✦ Gria-AI Welcome Screen</b><br/>
+      <sub>Dark Graphite palette, Gria · Gemma 2B header, and persona pills</sub><br/><br/>
+      <img src="docs/screenshots/01_home_screen.png" width="92%" alt="Gria-AI Home Screen" />
     </td>
     <td align="center" width="50%">
       <b>💬 Code Syntax Highlighting & Live Telemetry</b><br/>
       <sub>Multi-language lexer, copy button, and tok/s performance footer</sub><br/><br/>
-      <img src="docs/screenshots/02_chat_syntax_telemetry.png" width="92%" alt="NEXUS AI Chat Screen with Telemetry" />
+      <img src="docs/screenshots/02_chat_syntax_telemetry.png" width="92%" alt="Gria-AI Chat Screen with Telemetry" />
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
-      <b>🎙️ On-Device Voice Input (STT)</b><br/>
-      <sub>Native speech recognition modal with live audio waveforms</sub><br/><br/>
-      <img src="docs/screenshots/03_voice_input.png" width="92%" alt="NEXUS AI Voice Input" />
+      <b>🎙️ Two-Way Offline Voice Assistant</b><br/>
+      <sub>Hands-free voice orb with STT, on-device Gemma inference & TTS playback</sub><br/><br/>
+      <img src="docs/screenshots/07_live_voice_assistant.png" width="92%" alt="Gria-AI Live Voice Assistant" />
     </td>
     <td align="center" width="50%">
-      <b>📚 SQLite Conversation Drawer</b><br/>
-      <sub>Searchable history, pinned chats, and quick access</sub><br/><br/>
-      <img src="docs/screenshots/04_history_drawer.png" width="92%" alt="NEXUS AI History Drawer" />
+      <b>📊 Hardware & RAM Live Monitor</b><br/>
+      <sub>Snapdragon 8+ Gen 1, RAM usage gauge, Adreno 730 GPU & thermals</sub><br/><br/>
+      <img src="docs/screenshots/08_hardware_ram_monitor.png" width="92%" alt="Gria-AI Hardware & RAM Monitor" />
     </td>
   </tr>
   <tr>
+    <td align="center" width="50%">
+      <b>🎭 Custom Persona & Behavior Studio</b><br/>
+      <sub>System prompt editor, 1-tap Reset to Gria-AI, and Quick Persona Presets</sub><br/><br/>
+      <img src="docs/screenshots/09_persona_behavior_settings.png" width="92%" alt="Gria-AI Persona Settings" />
+    </td>
     <td align="center" width="50%">
       <b>⚡ 100% On-Device Gemma Inference</b><br/>
       <sub>39.9 tok/s local generation directly on Snapdragon Adreno GPU</sub><br/><br/>
-      <img src="docs/screenshots/05_ondevice_gemma.png" width="92%" alt="NEXUS AI On-Device Gemma Inference" />
+      <img src="docs/screenshots/05_ondevice_gemma.png" width="92%" alt="Gria-AI On-Device Gemma Inference" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <b>📚 SQLite Conversation Drawer</b><br/>
+      <sub>Searchable history, pinned chats, and quick access</sub><br/><br/>
+      <img src="docs/screenshots/04_history_drawer.png" width="92%" alt="Gria-AI History Drawer" />
     </td>
     <td align="center" width="50%">
       <b>⚙️ On-Device AI & GPU Settings</b><br/>
       <sub>Model file picker (.bin/.task) and Auto-Scan Downloads</sub><br/><br/>
-      <img src="docs/screenshots/06_settings_ondevice.png" width="92%" alt="NEXUS AI On-Device Settings" />
+      <img src="docs/screenshots/06_settings_ondevice.png" width="92%" alt="Gria-AI On-Device Settings" />
     </td>
   </tr>
 </table>
@@ -71,13 +83,23 @@ Experience the **Quiet Luxury + Modern Minimalism** design system on real Androi
 <table>
   <tr>
     <td width="50%">
+      <h3>🎙️ Two-Way Offline Voice Assistant</h3>
+      Full hands-free spoken conversation loop. Interactive animated glowing voice orb with on-device speech-to-text (STT), local Gemma intelligence, and offline text-to-speech (TTS) playback with haptic feedback.
+    </td>
+    <td width="50%">
+      <h3>📊 Live Hardware & RAM Telemetry</h3>
+      Real-time system telemetry bottom sheet. Live monitors Qualcomm Snapdragon 8+ Gen 1 cores, system RAM consumption gauge, model memory footprint, active Adreno 730 GPU acceleration, and thermal headroom.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
       <h3>⚡ Real-Time Streaming & Telemetry</h3>
       Native Server-Sent Events (SSE) token delivery. Measures exact generation metrics on every assistant completion:
       <code>13.6 tok/s · 370 tokens · 27.3s</code>.
     </td>
     <td width="50%">
-      <h3>🟢 Live Server Latency Badge</h3>
-      Top bar status pill tracks real Wi-Fi network latency directly to your LM Studio server (<code>Nexus · Mistral v ● 26ms</code>) with health-state color indicators.
+      <h3>🟢 Live Server & Local Engine Badge</h3>
+      Top bar status pill tracks real Wi-Fi network latency directly to your LM Studio server or switches to <code>🟢 local</code> when executing on-device models.
     </td>
   </tr>
   <tr>
@@ -99,7 +121,7 @@ Experience the **Quiet Luxury + Modern Minimalism** design system on real Androi
   <tr>
     <td width="50%">
       <h3>🎙️ On-Device Voice Input</h3>
-      One-tap microphone button with animated breathing halo. Launches the native Google Speech Recognition modal with real-time audio waveforms.
+      One-tap microphone button with animated breathing halo. Launches native speech recognition modal with real-time audio waveforms.
     </td>
     <td width="50%">
       <h3>⚡ 100% On-Device Gemma LLM</h3>
@@ -112,11 +134,11 @@ Experience the **Quiet Luxury + Modern Minimalism** design system on real Androi
 
 ## 🏛️ Architecture
 
-NEXUS AI is built strictly on **Clean Architecture + MVI/MVVM**, decoupling domain business logic from the UI presentation layer, on-device GPU inference, and LAN streaming transport.
+GRIA-AI is built strictly on **Clean Architecture + MVI/MVVM**, decoupling domain business logic from the UI presentation layer, on-device GPU inference, and LAN streaming transport.
 
 ```mermaid
 graph TD
-    subgraph MobileDevice["📱 Android Client (Nexus AI)"]
+    subgraph MobileDevice["📱 Android Client (Gria-AI)"]
         UI["Jetpack Compose UI<br/><i>(Quiet Luxury + Material 3)</i>"]
         VM["ChatViewModel<br/><i>(MVI State & Haptic Engine)</i>"]
         Repo["ChatRepository<br/><i>(Clean Architecture)</i>"]
@@ -189,7 +211,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ### 4. Connect
-1. Launch **Nexus AI** on your phone.
+1. Launch **Gria-AI** on your phone.
 2. Tap the **Server Status Badge** in the top bar.
 3. Enter your PC's IP and port (e.g. `http://192.168.1.100:1234`) and tap **Save & Apply**.
 4. Tap the active model dropdown in the top bar to select your loaded model. Enjoy 100% private local AI!
