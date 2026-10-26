@@ -253,7 +253,7 @@ fun NexusVoiceLiveDialog(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Nexus Live Voice",
+                        text = "Gria-AI Live Voice",
                         style = NexusTypography.titleMedium.copy(
                             color = colors.textPrimary,
                             fontWeight = FontWeight.SemiBold
@@ -369,7 +369,7 @@ fun NexusVoiceLiveDialog(
                     text = when (voiceState) {
                         VoiceState.LISTENING -> "Listening to you..."
                         VoiceState.THINKING -> "Thinking on-device..."
-                        VoiceState.SPEAKING -> "Nexus speaking..."
+                        VoiceState.SPEAKING -> "Gria speaking..."
                         VoiceState.IDLE -> "Tap orb to speak"
                     },
                     style = NexusTypography.titleMedium.copy(

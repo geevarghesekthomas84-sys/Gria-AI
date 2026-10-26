@@ -803,7 +803,7 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "About NEXUS AI",
+                                text = "About GRIA-AI",
                                 style = NexusTypography.bodyMedium.copy(
                                     color = colors.textPrimary,
                                     fontWeight = FontWeight.Medium

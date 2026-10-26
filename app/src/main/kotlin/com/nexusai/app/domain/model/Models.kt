@@ -33,7 +33,7 @@ enum class PersonaPreset(
     DEFAULT(
         title = "Personal",
         subtitle = "Thoughtful & helpful assistant",
-        systemPrompt = "You are Nexus AI, a helpful, precise, and thoughtful AI assistant powered by a local LM Studio model."
+        systemPrompt = "You are Gria-AI, a helpful, precise, and thoughtful on-device & local AI assistant."
     ),
     CODER(
         title = "Coder",
@@ -83,7 +83,7 @@ data class ServerConfig(
     val defaultModel: String = "",
     val temperature: Float = 0.7f,
     val maxTokens: Int = 2048,
-    val systemPrompt: String = "You are Nexus AI, a helpful, precise, and thoughtful AI assistant powered by a local LM Studio model.",
+    val systemPrompt: String = "You are Gria-AI, a helpful, precise, and thoughtful on-device & local AI assistant.",
     val isDarkTheme: Boolean = false,
     val maxContextMessages: Int = 20
 ) {

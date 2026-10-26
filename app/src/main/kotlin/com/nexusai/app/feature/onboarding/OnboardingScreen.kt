@@ -62,7 +62,7 @@ fun OnboardingScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "NEXUS AI",
+            text = "GRIA-AI",
             style = NexusTypography.headlineLarge.copy(
                 color = colors.textPrimary,
                 letterSpacing = 2.5.sp

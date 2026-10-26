@@ -40,7 +40,7 @@ class SettingsDataStore(private val context: Context) {
             defaultModel = prefs[KEY_DEFAULT_MODEL] ?: "",
             temperature = prefs[KEY_TEMPERATURE] ?: 0.7f,
             maxTokens = prefs[KEY_MAX_TOKENS] ?: 2048,
-            systemPrompt = prefs[KEY_SYSTEM_PROMPT] ?: "You are Nexus AI, a helpful, precise, and thoughtful AI assistant powered by a local LM Studio model.",
+            systemPrompt = prefs[KEY_SYSTEM_PROMPT] ?: "You are Gria-AI, a helpful, precise, and thoughtful on-device & local AI assistant.",
             isDarkTheme = prefs[KEY_IS_DARK_THEME] ?: false,
             maxContextMessages = prefs[KEY_MAX_CONTEXT_MESSAGES] ?: 20
         )

@@ -133,7 +133,7 @@ fun ConversationHistoryDrawer(
                     NexusLogo(size = 28.dp, showContainer = true)
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Nexus AI",
+                        text = "Gria-AI",
                         style = NexusTypography.titleMedium.copy(
                             color = colors.textPrimary,
                             fontWeight = FontWeight.SemiBold

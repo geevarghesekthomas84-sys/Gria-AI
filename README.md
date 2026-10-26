@@ -1,7 +1,7 @@
 <div align="center">
 
-# ✦ NEXUS AI ✦
-### *Quiet Luxury Local AI Assistant for Android*
+# ✦ GRIA-AI ✦
+### *Quiet Luxury On-Device & Local AI Assistant for Android*
 
 A state-of-the-art, 100% private Android AI chat application delivering a ChatGPT-grade conversational experience powered directly by your own local LLMs running inside **LM Studio** on your PC.
 

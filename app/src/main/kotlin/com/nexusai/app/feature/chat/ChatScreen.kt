@@ -141,12 +141,13 @@ fun ChatScreen(
     val displayModelName = remember(uiState.selectedModel) {
         val raw = uiState.selectedModel
         when {
-            raw.isEmpty() -> "Nexus"
-            raw.contains("qwen", ignoreCase = true) -> "Nexus · Qwen3"
-            raw.contains("llama", ignoreCase = true) -> "Nexus · Llama3"
-            raw.contains("deepseek", ignoreCase = true) -> "Nexus · DeepSeek"
-            raw.contains("mistral", ignoreCase = true) -> "Nexus · Mistral"
-            else -> "Nexus · " + raw.take(12)
+            raw.isEmpty() -> "Gria-AI"
+            raw.contains("ondevice", ignoreCase = true) || raw.contains("gemma", ignoreCase = true) -> "Gria · Gemma 2B"
+            raw.contains("qwen", ignoreCase = true) -> "Gria · Qwen"
+            raw.contains("llama", ignoreCase = true) -> "Gria · Llama"
+            raw.contains("deepseek", ignoreCase = true) -> "Gria · DeepSeek"
+            raw.contains("mistral", ignoreCase = true) -> "Gria · Mistral"
+            else -> "Gria · " + raw.take(12)
         }
     }
 
@@ -319,7 +320,7 @@ fun ChatScreen(
                         onStop = { viewModel.stopStreaming() },
                         isStreaming = uiState.isStreaming,
                         onStartVoiceLive = { isVoiceLiveOpen = true },
-                        placeholder = "Message Nexus..."
+                        placeholder = "Message Gria..."
                     )
                 }
             }

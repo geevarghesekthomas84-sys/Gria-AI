@@ -120,7 +120,7 @@ fun AboutScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "NEXUS AI",
+                text = "GRIA-AI",
                 style = NexusTypography.headlineLarge.copy(
                     color = colors.textPrimary,
                     letterSpacing = 2.sp
