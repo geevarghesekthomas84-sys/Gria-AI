@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-  namespace = "com.nexusai.app"
+  namespace = "com.griaai.app"
   compileSdk = 36
 
   defaultConfig {
-    applicationId = "com.nexusai.app"
+    applicationId = "com.griaai.app"
     minSdk = 29
     targetSdk = 36
     versionCode = 1
