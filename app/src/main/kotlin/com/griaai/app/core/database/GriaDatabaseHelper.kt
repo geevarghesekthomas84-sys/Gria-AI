@@ -9,6 +9,7 @@ import com.griaai.app.domain.model.Conversation
 import com.griaai.app.domain.model.Message
 import com.griaai.app.domain.model.MessageRole
 import com.griaai.app.domain.model.MessageStatus
+import com.griaai.app.domain.model.Persona
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -24,7 +25,7 @@ class GriaDatabaseHelper(context: Context) : SQLiteOpenHelper(
 ) {
     companion object {
         const val DATABASE_NAME = "gria_ai.db"
-        const val DATABASE_VERSION = 2
+        const val DATABASE_VERSION = 3
 
         const val TABLE_CONVERSATIONS = "conversations"
         const val COL_CONV_ID = "id"
@@ -46,6 +47,14 @@ class GriaDatabaseHelper(context: Context) : SQLiteOpenHelper(
         const val COL_MSG_TOKENS_COUNT = "tokens_count"
         const val COL_MSG_DURATION_MS = "duration_ms"
         const val COL_MSG_TOK_PER_SEC = "tok_per_sec"
+        const val COL_MSG_IMAGE_URI = "image_uri"
+
+        const val TABLE_CUSTOM_PERSONAS = "custom_personas"
+        const val COL_PERSONA_ID = "id"
+        const val COL_PERSONA_TITLE = "title"
+        const val COL_PERSONA_SUBTITLE = "subtitle"
+        const val COL_PERSONA_SYSTEM_PROMPT = "system_prompt"
+        const val COL_PERSONA_CREATED_AT = "created_at"
     }
 
     private val _dbChangeTrigger = MutableSharedFlow<Unit>(
@@ -87,7 +96,20 @@ class GriaDatabaseHelper(context: Context) : SQLiteOpenHelper(
                 $COL_MSG_TOKENS_COUNT INTEGER,
                 $COL_MSG_DURATION_MS INTEGER,
                 $COL_MSG_TOK_PER_SEC REAL,
+                $COL_MSG_IMAGE_URI TEXT,
                 FOREIGN KEY ($COL_MSG_CONV_ID) REFERENCES $TABLE_CONVERSATIONS($COL_CONV_ID) ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_CUSTOM_PERSONAS (
+                $COL_PERSONA_ID TEXT PRIMARY KEY,
+                $COL_PERSONA_TITLE TEXT NOT NULL,
+                $COL_PERSONA_SUBTITLE TEXT NOT NULL,
+                $COL_PERSONA_SYSTEM_PROMPT TEXT NOT NULL,
+                $COL_PERSONA_CREATED_AT INTEGER NOT NULL
             )
             """.trimIndent()
         )
@@ -103,6 +125,24 @@ class GriaDatabaseHelper(context: Context) : SQLiteOpenHelper(
                 db.execSQL("ALTER TABLE $TABLE_MESSAGES ADD COLUMN $COL_MSG_TOKENS_COUNT INTEGER")
                 db.execSQL("ALTER TABLE $TABLE_MESSAGES ADD COLUMN $COL_MSG_DURATION_MS INTEGER")
                 db.execSQL("ALTER TABLE $TABLE_MESSAGES ADD COLUMN $COL_MSG_TOK_PER_SEC REAL")
+            } catch (ignored: Exception) {}
+        }
+        if (oldVersion < 3) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_MESSAGES ADD COLUMN $COL_MSG_IMAGE_URI TEXT")
+            } catch (ignored: Exception) {}
+            try {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS $TABLE_CUSTOM_PERSONAS (
+                        $COL_PERSONA_ID TEXT PRIMARY KEY,
+                        $COL_PERSONA_TITLE TEXT NOT NULL,
+                        $COL_PERSONA_SUBTITLE TEXT NOT NULL,
+                        $COL_PERSONA_SYSTEM_PROMPT TEXT NOT NULL,
+                        $COL_PERSONA_CREATED_AT INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
             } catch (ignored: Exception) {}
         }
     }
@@ -224,6 +264,7 @@ class GriaDatabaseHelper(context: Context) : SQLiteOpenHelper(
             put(COL_MSG_TOKENS_COUNT, message.tokensCount)
             put(COL_MSG_DURATION_MS, message.generationDurationMs)
             put(COL_MSG_TOK_PER_SEC, message.tokensPerSecond)
+            put(COL_MSG_IMAGE_URI, message.imageUri)
         }
         writableDatabase.insertWithOnConflict(
             TABLE_MESSAGES,
@@ -262,6 +303,7 @@ class GriaDatabaseHelper(context: Context) : SQLiteOpenHelper(
                 val tokensIdx = it.getColumnIndex(COL_MSG_TOKENS_COUNT)
                 val durationIdx = it.getColumnIndex(COL_MSG_DURATION_MS)
                 val tokPerSecIdx = it.getColumnIndex(COL_MSG_TOK_PER_SEC)
+                val imageUriIdx = it.getColumnIndex(COL_MSG_IMAGE_URI)
 
                 list.add(
                     Message(
@@ -274,7 +316,8 @@ class GriaDatabaseHelper(context: Context) : SQLiteOpenHelper(
                         errorMessage = it.getString(it.getColumnIndexOrThrow(COL_MSG_ERROR)),
                         tokensCount = if (tokensIdx != -1 && !it.isNull(tokensIdx)) it.getInt(tokensIdx) else null,
                         generationDurationMs = if (durationIdx != -1 && !it.isNull(durationIdx)) it.getLong(durationIdx) else null,
-                        tokensPerSecond = if (tokPerSecIdx != -1 && !it.isNull(tokPerSecIdx)) it.getFloat(tokPerSecIdx) else null
+                        tokensPerSecond = if (tokPerSecIdx != -1 && !it.isNull(tokPerSecIdx)) it.getFloat(tokPerSecIdx) else null,
+                        imageUri = if (imageUriIdx != -1 && !it.isNull(imageUriIdx)) it.getString(imageUriIdx) else null
                     )
                 )
             }
@@ -314,5 +357,58 @@ class GriaDatabaseHelper(context: Context) : SQLiteOpenHelper(
             }
         }
         list
+    }
+
+    // --- Custom Persona Operations ---
+
+    suspend fun getCustomPersonas(): List<Persona> = withContext(Dispatchers.IO) {
+        val list = mutableListOf<Persona>()
+        try {
+            val cursor = readableDatabase.query(
+                TABLE_CUSTOM_PERSONAS,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "$COL_PERSONA_CREATED_AT ASC"
+            )
+            cursor.use {
+                while (it.moveToNext()) {
+                    list.add(
+                        Persona(
+                            id = it.getString(it.getColumnIndexOrThrow(COL_PERSONA_ID)),
+                            title = it.getString(it.getColumnIndexOrThrow(COL_PERSONA_TITLE)),
+                            subtitle = it.getString(it.getColumnIndexOrThrow(COL_PERSONA_SUBTITLE)),
+                            systemPrompt = it.getString(it.getColumnIndexOrThrow(COL_PERSONA_SYSTEM_PROMPT)),
+                            isCustom = true
+                        )
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        list
+    }
+
+    suspend fun insertOrUpdateCustomPersona(persona: Persona) = withContext(Dispatchers.IO) {
+        val values = ContentValues().apply {
+            put(COL_PERSONA_ID, persona.id)
+            put(COL_PERSONA_TITLE, persona.title)
+            put(COL_PERSONA_SUBTITLE, persona.subtitle)
+            put(COL_PERSONA_SYSTEM_PROMPT, persona.systemPrompt)
+            put(COL_PERSONA_CREATED_AT, System.currentTimeMillis())
+        }
+        writableDatabase.insertWithOnConflict(
+            TABLE_CUSTOM_PERSONAS,
+            null,
+            values,
+            SQLiteDatabase.CONFLICT_REPLACE
+        )
+        notifyChanged()
+    }
+
+    suspend fun deleteCustomPersona(id: String) = withContext(Dispatchers.IO) {
+        writableDatabase.delete(TABLE_CUSTOM_PERSONAS, "$COL_PERSONA_ID = ?", arrayOf(id))
+        notifyChanged()
     }
 }

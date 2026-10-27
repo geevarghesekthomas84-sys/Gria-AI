@@ -12,7 +12,9 @@ import com.griaai.app.domain.model.MessageRole
 import com.griaai.app.domain.model.MessageStatus
 import com.griaai.app.domain.model.ServerConfig
 import com.griaai.app.domain.repository.ChatRepository
+import com.griaai.app.domain.model.Persona
 import com.griaai.app.domain.model.PersonaPreset
+import java.io.File
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -40,7 +42,9 @@ data class ChatUiState(
     val errorMessage: String? = null,
     val isRefreshingModels: Boolean = false,
     val serverPingMs: Long? = null,
-    val activePersona: PersonaPreset = PersonaPreset.DEFAULT
+    val activePersona: Persona = Persona.DEFAULT_PERSONAS.first(),
+    val availablePersonas: List<Persona> = Persona.DEFAULT_PERSONAS,
+    val selectedImageUri: String? = null
 ) {
     val isOnDeviceSelected: Boolean
         get() = selectedModel.startsWith("ondevice:") || selectedModel == "ondevice:gemma"
@@ -59,6 +63,9 @@ class ChatViewModel(
     private var streamingJob: Job? = null
 
     init {
+        // Load custom personas from database
+        loadPersonas()
+
         // Observe server configuration
         viewModelScope.launch {
             repository.serverConfigFlow.collect { config ->
@@ -93,6 +100,17 @@ class ChatViewModel(
             connectionStatus = newStatus,
             isModelSelectorOpen = false
         )
+
+        if (modelId.startsWith("ondevice:") && modelId != "ondevice:gemma") {
+            val path = modelId.removePrefix("ondevice:")
+            viewModelScope.launch(Dispatchers.IO) {
+                val f = File(path)
+                if (f.exists() && f.canRead()) {
+                    repository.onDeviceEngine.loadModel(f)
+                }
+            }
+        }
+
         viewModelScope.launch {
             runCatching {
                 repository.setDefaultModel(modelId)
@@ -107,15 +125,61 @@ class ChatViewModel(
         }
     }
 
-    fun setPersona(preset: PersonaPreset) {
-        _uiState.value = _uiState.value.copy(activePersona = preset)
+    fun setPersona(persona: Persona) {
+        _uiState.value = _uiState.value.copy(activePersona = persona)
         viewModelScope.launch {
             _uiState.value.currentConversation?.let { conv ->
-                val updated = conv.copy(systemPrompt = preset.systemPrompt)
+                val updated = conv.copy(systemPrompt = persona.systemPrompt)
                 repository.saveConversation(updated)
                 _uiState.value = _uiState.value.copy(currentConversation = updated)
             }
         }
+    }
+
+    fun setPersona(preset: PersonaPreset) {
+        setPersona(preset.toPersona())
+    }
+
+    fun loadPersonas() {
+        viewModelScope.launch {
+            val custom = repository.getCustomPersonas()
+            val all = Persona.DEFAULT_PERSONAS + custom
+            _uiState.value = _uiState.value.copy(availablePersonas = all)
+        }
+    }
+
+    fun createCustomPersona(title: String, subtitle: String, systemPrompt: String) {
+        if (title.isBlank() || systemPrompt.isBlank()) return
+        val newPersona = Persona(
+            id = UUID.randomUUID().toString(),
+            title = title.trim(),
+            subtitle = subtitle.trim().ifBlank { "Custom assistant" },
+            systemPrompt = systemPrompt.trim(),
+            isCustom = true
+        )
+        viewModelScope.launch {
+            repository.saveCustomPersona(newPersona)
+            loadPersonas()
+            setPersona(newPersona)
+        }
+    }
+
+    fun deleteCustomPersona(personaId: String) {
+        viewModelScope.launch {
+            repository.deleteCustomPersona(personaId)
+            loadPersonas()
+            if (_uiState.value.activePersona.id == personaId) {
+                setPersona(Persona.DEFAULT_PERSONAS.first())
+            }
+        }
+    }
+
+    fun onImageSelected(uriString: String?) {
+        _uiState.value = _uiState.value.copy(selectedImageUri = uriString)
+    }
+
+    fun clearSelectedImage() {
+        _uiState.value = _uiState.value.copy(selectedImageUri = null)
     }
 
     fun pingServer() {
@@ -211,10 +275,11 @@ class ChatViewModel(
     }
 
     fun sendMessage(content: String = _uiState.value.inputText) {
-        if (content.isBlank() || _uiState.value.isStreaming) return
+        val attachedImageUri = _uiState.value.selectedImageUri
+        if ((content.isBlank() && attachedImageUri == null) || _uiState.value.isStreaming) return
 
-        val trimmedText = content.trim()
-        _uiState.value = _uiState.value.copy(inputText = "")
+        val trimmedText = content.trim().ifBlank { if (attachedImageUri != null) "Describe this image" else "" }
+        _uiState.value = _uiState.value.copy(inputText = "", selectedImageUri = null)
 
         viewModelScope.launch {
             var convId = _uiState.value.currentConversationId
@@ -249,7 +314,8 @@ class ChatViewModel(
                 conversationId = convId,
                 role = MessageRole.USER,
                 content = trimmedText,
-                status = MessageStatus.COMPLETE
+                status = MessageStatus.COMPLETE,
+                imageUri = attachedImageUri
             )
             repository.saveMessage(userMsg)
 

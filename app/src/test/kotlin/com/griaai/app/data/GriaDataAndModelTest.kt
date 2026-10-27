@@ -11,6 +11,8 @@ import com.griaai.app.domain.model.Conversation
 import com.griaai.app.domain.model.Message
 import com.griaai.app.domain.model.MessageRole
 import com.griaai.app.domain.model.MessageStatus
+import com.griaai.app.domain.model.Persona
+import com.griaai.app.domain.model.PersonaPreset
 import com.griaai.app.domain.model.ServerConfig
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
@@ -19,7 +21,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class NexusDataAndModelTest {
+class GriaDataAndModelTest {
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -122,10 +124,55 @@ class NexusDataAndModelTest {
             conversationId = conv.id,
             role = MessageRole.USER,
             content = "Hello Gria-AI!",
-            status = MessageStatus.COMPLETE
+            status = MessageStatus.COMPLETE,
+            imageUri = "content://media/external/images/media/42"
         )
         assertEquals(MessageRole.USER, msg.role)
         assertEquals(MessageStatus.COMPLETE, msg.status)
         assertEquals("Hello Gria-AI!", msg.content)
+        assertEquals("content://media/external/images/media/42", msg.imageUri)
+    }
+
+    @Test
+    fun testPersonaPresetToPersonaMapping() {
+        val presets = PersonaPreset.entries
+        assertEquals(4, presets.size)
+
+        val coder = PersonaPreset.CODER.toPersona()
+        assertEquals("coder", coder.id)
+        assertEquals("Coder", coder.title)
+        assertFalse(coder.isCustom)
+        assertTrue(coder.systemPrompt.contains("senior software engineer"))
+
+        val allDefaults = Persona.DEFAULT_PERSONAS
+        assertEquals(4, allDefaults.size)
+        assertTrue(allDefaults.any { it.id == "personal" })
+        assertTrue(allDefaults.any { it.id == "security" })
+    }
+
+    @Test
+    fun testCustomPersonaCreationAndValidation() {
+        val custom = Persona(
+            id = "custom-123",
+            title = "Python Tutor",
+            subtitle = "Step-by-step programming teacher",
+            systemPrompt = "You are a patient Python instructor.",
+            isCustom = true
+        )
+        assertTrue(custom.isCustom)
+        assertEquals("Python Tutor", custom.title)
+        assertEquals("custom-123", custom.id)
+    }
+
+    @Test
+    fun testSpecialTokenStrippingRegex() {
+        val specialTokenRegex = Regex("""<bos>|<eos>|<start_of_turn>|<end_of_turn>|</s>|<\|im_end\|>|<\|im_start\|>""")
+        val textWithSpecial = "<bos><start_of_turn>model\nHello! How can I assist you today?<end_of_turn><eos>"
+        val sanitized = specialTokenRegex.replace(textWithSpecial, "").trim()
+        assertEquals("model\nHello! How can I assist you today?", sanitized)
+
+        val pureBos = "<bos><bos><bos>"
+        val sanitizedBos = specialTokenRegex.replace(pureBos, "").trim()
+        assertEquals("", sanitizedBos)
     }
 }

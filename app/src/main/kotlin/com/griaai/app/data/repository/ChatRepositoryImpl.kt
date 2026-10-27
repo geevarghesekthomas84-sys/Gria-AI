@@ -1,5 +1,9 @@
 package com.griaai.app.data.repository
 
+import android.net.Uri
+import android.util.Base64
+import com.griaai.app.GriaApplication
+
 import com.griaai.app.core.database.GriaDatabaseHelper
 import com.griaai.app.core.datastore.SettingsDataStore
 import com.griaai.app.core.llm.OnDeviceLlmEngine
@@ -12,8 +16,10 @@ import com.griaai.app.domain.model.AIModel
 import com.griaai.app.domain.model.Conversation
 import com.griaai.app.domain.model.Message
 import com.griaai.app.domain.model.MessageRole
+import com.griaai.app.domain.model.Persona
 import com.griaai.app.domain.model.ServerConfig
 import com.griaai.app.domain.repository.ChatRepository
+import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -137,23 +143,51 @@ class ChatRepositoryImpl(
     }
 
     override suspend fun fetchModels(baseUrl: String): Result<List<AIModel>> = withContext(Dispatchers.IO) {
-        val onDeviceModel = AIModel(
-            id = ON_DEVICE_MODEL_ID,
-            objectType = "on-device",
-            ownedBy = if (onDeviceEngine.isModelLoaded) "⚡ On-Device (${onDeviceEngine.loadedModelName})" else "⚡ On-Device (Gemma Local)"
-        )
+        val discoveredFiles = onDeviceEngine.discoverAllAvailableModels()
+        val onDeviceModels = if (discoveredFiles.isNotEmpty()) {
+            discoveredFiles.map { file ->
+                val sizeMb = file.length() / (1024 * 1024)
+                val typeTag = if (file.name.contains("gpu", ignoreCase = true)) "GPU" else "CPU"
+                AIModel(
+                    id = "ondevice:${file.absolutePath}",
+                    objectType = "on-device",
+                    ownedBy = "⚡ Local (${file.name} • ${sizeMb}MB $typeTag)"
+                )
+            }
+        } else {
+            listOf(
+                AIModel(
+                    id = ON_DEVICE_MODEL_ID,
+                    objectType = "on-device",
+                    ownedBy = if (onDeviceEngine.isModelLoaded) "⚡ On-Device (${onDeviceEngine.loadedModelName})" else "⚡ On-Device (Gemma Local)"
+                )
+            )
+        }
 
         try {
             val remoteResult = testConnection(baseUrl)
             if (remoteResult.isSuccess) {
                 val remoteModels = remoteResult.getOrNull().orEmpty()
-                Result.success(listOf(onDeviceModel) + remoteModels)
+                Result.success(onDeviceModels + remoteModels)
             } else {
                 // If remote LM Studio is offline, still enable on-device local AI
-                Result.success(listOf(onDeviceModel))
+                Result.success(onDeviceModels)
             }
         } catch (e: Exception) {
-            Result.success(listOf(onDeviceModel))
+            Result.success(onDeviceModels)
+        }
+    }
+
+    private fun getBase64Image(uriStr: String): String? {
+        return try {
+            val uri = Uri.parse(uriStr)
+            val context = GriaApplication.instance.applicationContext
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                val bytes = stream.readBytes()
+                Base64.encodeToString(bytes, Base64.NO_WRAP)
+            }
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -176,6 +210,17 @@ class ChatRepositoryImpl(
         // Check if user selected the on-device local model
         if (modelId.startsWith("ondevice:") || modelId == ON_DEVICE_MODEL_ID) {
             return flow {
+                val customPath = if (modelId.startsWith("ondevice:") && modelId != ON_DEVICE_MODEL_ID) {
+                    modelId.removePrefix("ondevice:")
+                } else null
+
+                if (customPath != null && onDeviceEngine.loadedModelPath != customPath) {
+                    val targetFile = File(customPath)
+                    if (targetFile.exists() && targetFile.canRead()) {
+                        onDeviceEngine.loadModel(targetFile)
+                    }
+                }
+
                 if (!onDeviceEngine.isModelLoaded) {
                     val helpText = "⚡ **Gemma 100% On-Device Local AI**\n\n" +
                             "No on-device model weights are loaded into GPU memory.\n\n" +
@@ -185,6 +230,7 @@ class ChatRepositoryImpl(
                             "3. Enjoy ultra-fast, 100% offline private local AI with zero latency!"
 
                     for (word in helpText.split(" ")) {
+                        currentCoroutineContext().ensureActive()
                         emit(StreamEvent.Token("$word "))
                         delay(12)
                     }
@@ -219,7 +265,18 @@ class ChatRepositoryImpl(
                 MessageRole.USER -> "user"
                 MessageRole.ASSISTANT -> "assistant"
             }
-            dtoList.add(ChatMessageDto(role = roleStr, content = msg.content))
+            val contentWithImage = if (msg.imageUri != null) {
+                val b64 = getBase64Image(msg.imageUri)
+                if (b64 != null) {
+                    val promptText = msg.content.ifBlank { "Describe this image" }
+                    "$promptText\n\n![image](data:image/jpeg;base64,$b64)"
+                } else {
+                    msg.content
+                }
+            } else {
+                msg.content
+            }
+            dtoList.add(ChatMessageDto(role = roleStr, content = contentWithImage))
         }
 
         val request = ChatCompletionRequestDto(
@@ -250,5 +307,15 @@ class ChatRepositoryImpl(
 
     override suspend fun setDarkTheme(isDark: Boolean) {
         dataStore.setDarkTheme(isDark)
+    }
+
+    override suspend fun getCustomPersonas(): List<Persona> = dbHelper.getCustomPersonas()
+
+    override suspend fun saveCustomPersona(persona: Persona) {
+        dbHelper.insertOrUpdateCustomPersona(persona)
+    }
+
+    override suspend fun deleteCustomPersona(id: String) {
+        dbHelper.deleteCustomPersona(id)
     }
 }

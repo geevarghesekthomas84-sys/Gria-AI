@@ -1,5 +1,13 @@
 package com.griaai.app.core.components
 
+import android.graphics.BitmapFactory
+import android.net.Uri
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -79,20 +87,53 @@ fun MessageBubble(
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         if (isUser) {
-            // User Message: Compact, lightly tinted rounded bubble
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = colors.userBubble,
-                border = androidx.compose.foundation.BorderStroke(1.dp, colors.userBubbleBorder),
-                modifier = Modifier
-                    .widthIn(max = 290.dp)
-                    .clickable { showActions = !showActions }
-            ) {
-                Text(
-                    text = message.content,
-                    style = GriaTypography.bodyLarge.copy(color = colors.textPrimary),
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                )
+            Column(horizontalAlignment = Alignment.End) {
+                // Attached multimodal image (if any)
+                if (message.imageUri != null) {
+                    val context = LocalContext.current
+                    val bitmap = remember(message.imageUri) {
+                        try {
+                            val uri = Uri.parse(message.imageUri)
+                            context.contentResolver.openInputStream(uri)?.use { stream ->
+                                BitmapFactory.decodeStream(stream)
+                            }
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Attached image",
+                            modifier = Modifier
+                                .widthIn(max = 240.dp)
+                                .heightIn(max = 200.dp)
+                                .clip(RoundedCornerShape(14.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                        if (message.content.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                        }
+                    }
+                }
+
+                // User Message: Compact, lightly tinted rounded bubble
+                if (message.content.isNotBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = colors.userBubble,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, colors.userBubbleBorder),
+                        modifier = Modifier
+                            .widthIn(max = 290.dp)
+                            .clickable { showActions = !showActions }
+                    ) {
+                        Text(
+                            text = message.content,
+                            style = GriaTypography.bodyLarge.copy(color = colors.textPrimary),
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        )
+                    }
+                }
             }
         } else {
             // Assistant Message: Appears directly on the background with generous margins

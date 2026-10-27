@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -133,6 +134,14 @@ fun ModelSelectorBottomSheet(
             } else {
                 models.forEachIndexed { index, model ->
                     val isSelected = model.id == selectedModelId
+                    val displayName = remember(model.id) {
+                        if (model.id.startsWith("ondevice:")) {
+                            val fileName = model.id.removePrefix("ondevice:").substringAfterLast("/")
+                            if (fileName.isEmpty() || model.id == "ondevice:gemma") "Gemma 2B (On-Device GPU)" else fileName
+                        } else {
+                            model.id
+                        }
+                    }
 
                     Row(
                         modifier = Modifier
@@ -150,7 +159,7 @@ fun ModelSelectorBottomSheet(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = model.id,
+                                text = displayName,
                                 style = GriaTypography.bodyMedium.copy(
                                     color = if (isSelected) colors.textPrimary else colors.textSecondary,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal

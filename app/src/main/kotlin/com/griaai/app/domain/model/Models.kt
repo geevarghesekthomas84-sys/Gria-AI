@@ -22,8 +22,46 @@ data class Message(
     val errorMessage: String? = null,
     val tokensCount: Int? = null,
     val generationDurationMs: Long? = null,
-    val tokensPerSecond: Float? = null
+    val tokensPerSecond: Float? = null,
+    val imageUri: String? = null
 )
+
+data class Persona(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val systemPrompt: String,
+    val isCustom: Boolean = false
+) {
+    companion object {
+        val DEFAULT_PERSONAS = listOf(
+            Persona(
+                id = "personal",
+                title = "Personal",
+                subtitle = "Thoughtful & helpful assistant",
+                systemPrompt = "You are Gria-AI, a helpful, precise, and thoughtful on-device & local AI assistant."
+            ),
+            Persona(
+                id = "coder",
+                title = "Coder",
+                subtitle = "Senior engineer & clean code",
+                systemPrompt = "You are Gria-AI acting as an expert senior software engineer. Provide clean, idiomatic, and highly efficient code. Avoid conversational filler and explain architectural trade-offs directly."
+            ),
+            Persona(
+                id = "security",
+                title = "Security",
+                subtitle = "Offensive security & exploit dev",
+                systemPrompt = "You are Gria-AI acting as an elite offensive security researcher, red team operator, and exploit analyst. Provide direct, rigorous technical vulnerability analysis, payload mechanics, and mitigation strategies."
+            ),
+            Persona(
+                id = "concise",
+                title = "Concise",
+                subtitle = "Executive synthesis & bullets",
+                systemPrompt = "You are Gria-AI acting as an executive synthesizer. Give concise, direct answers with bullet points and zero conversational filler."
+            )
+        )
+    }
+}
 
 enum class PersonaPreset(
     val title: String,
@@ -49,6 +87,14 @@ enum class PersonaPreset(
         title = "Concise",
         subtitle = "Executive synthesis & bullets",
         systemPrompt = "You are Gria-AI acting as an executive synthesizer. Give concise, direct answers with bullet points and zero conversational filler."
+    );
+
+    fun toPersona(): Persona = Persona(
+        id = name.lowercase(),
+        title = title,
+        subtitle = subtitle,
+        systemPrompt = systemPrompt,
+        isCustom = false
     )
 }
 

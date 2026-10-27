@@ -30,10 +30,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -42,10 +44,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDrawerState
+import com.griaai.app.domain.model.Persona
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -108,6 +114,7 @@ fun ChatScreen(
 
     var isHardwareSheetOpen by remember { mutableStateOf(false) }
     var isVoiceLiveOpen by remember { mutableStateOf(false) }
+    var isCreatePersonaOpen by remember { mutableStateOf(false) }
 
     // Smooth animation when a new message is added
     LaunchedEffect(uiState.messages.size) {
@@ -295,11 +302,18 @@ fun ChatScreen(
                             thickness = 0.5.dp
                         )
 
-                        // Feature 3: Persona / Mode Presets bar
+                        // Feature 3: Dynamic Personas bar with custom persona support
                         PersonaSelectorBar(
+                            personas = uiState.availablePersonas,
                             activePersona = uiState.activePersona,
-                            onSelectPersona = { preset ->
-                                viewModel.setPersona(preset)
+                            onSelectPersona = { persona ->
+                                viewModel.setPersona(persona)
+                            },
+                            onAddPersona = {
+                                isCreatePersonaOpen = true
+                            },
+                            onDeletePersona = { persona ->
+                                viewModel.deleteCustomPersona(persona.id)
                             }
                         )
                     }
@@ -320,6 +334,9 @@ fun ChatScreen(
                         onStop = { viewModel.stopStreaming() },
                         isStreaming = uiState.isStreaming,
                         onStartVoiceLive = { isVoiceLiveOpen = true },
+                        selectedImageUri = uiState.selectedImageUri,
+                        onSelectImage = { viewModel.onImageSelected(it) },
+                        onClearImage = { viewModel.clearSelectedImage() },
                         placeholder = "Message Gria..."
                     )
                 }
@@ -448,6 +465,17 @@ fun ChatScreen(
             isAssistantStreaming = uiState.isStreaming
         )
     }
+
+    // Custom Persona Creation Dialog
+    if (isCreatePersonaOpen) {
+        CreatePersonaDialog(
+            onDismiss = { isCreatePersonaOpen = false },
+            onSave = { title, subtitle, prompt ->
+                viewModel.createCustomPersona(title, subtitle, prompt)
+                isCreatePersonaOpen = false
+            }
+        )
+    }
 }
 
 /**
@@ -500,13 +528,16 @@ fun ServerLatencyBadge(
 }
 
 /**
- * Feature 3: Persona / Mode Presets Bar.
- * Quick-switch between Personal AI, Senior Coder, Security Analyst, and Synthesizer.
+ * Feature 3: Dynamic Persona Selector Bar.
+ * Quick-switch between Default Presets and Custom User Personas with + Add chip.
  */
 @Composable
 fun PersonaSelectorBar(
-    activePersona: PersonaPreset,
-    onSelectPersona: (PersonaPreset) -> Unit,
+    personas: List<Persona>,
+    activePersona: Persona,
+    onSelectPersona: (Persona) -> Unit,
+    onAddPersona: () -> Unit,
+    onDeletePersona: (Persona) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalGriaColors.current
@@ -520,8 +551,8 @@ fun PersonaSelectorBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        PersonaPreset.entries.forEach { preset ->
-            val isSelected = preset == activePersona
+        personas.forEach { persona ->
+            val isSelected = persona.id == activePersona.id
             val bg = if (isSelected) colors.surfaceSubtle else colors.background
             val borderCol = if (isSelected) colors.accent else colors.borderSubtle
             val textCol = if (isSelected) colors.accent else colors.textSecondary
@@ -535,7 +566,7 @@ fun PersonaSelectorBar(
                     .clip(RoundedCornerShape(14.dp))
                     .clickable {
                         GriaHaptic.click(view)
-                        onSelectPersona(preset)
+                        onSelectPersona(persona)
                     }
             ) {
                 Row(
@@ -543,15 +574,162 @@ fun PersonaSelectorBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = preset.title,
+                        text = persona.title,
                         style = GriaTypography.labelSmall.copy(
                             color = textCol,
                             fontWeight = fontWeight
                         )
                     )
+                    if (persona.isCustom) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Delete custom persona",
+                            tint = colors.textTertiary,
+                            modifier = Modifier
+                                .size(11.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    GriaHaptic.tick(view)
+                                    onDeletePersona(persona)
+                                }
+                        )
+                    }
                 }
             }
         }
+
+        // Add Custom Persona Chip
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = colors.background,
+            border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle),
+            modifier = Modifier
+                .clip(RoundedCornerShape(14.dp))
+                .clickable {
+                    GriaHaptic.click(view)
+                    onAddPersona()
+                }
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add Persona",
+                    tint = colors.textSecondary,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(
+                    text = "Add",
+                    style = GriaTypography.labelSmall.copy(
+                        color = colors.textSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
+                )
+            }
+        }
     }
+}
+
+/**
+ * Dialog to define a new Custom AI Persona with system prompt.
+ */
+@Composable
+fun CreatePersonaDialog(
+    onDismiss: () -> Unit,
+    onSave: (title: String, subtitle: String, systemPrompt: String) -> Unit
+) {
+    val colors = LocalGriaColors.current
+    var title by remember { mutableStateOf("") }
+    var subtitle by remember { mutableStateOf("") }
+    var systemPrompt by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surfaceElevated,
+        title = {
+            Text(
+                text = "New Custom Persona",
+                style = GriaTypography.titleMedium.copy(color = colors.textPrimary)
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Define a custom AI persona with tailored instructions.",
+                    style = GriaTypography.bodySmall.copy(color = colors.textSecondary)
+                )
+
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Persona Name (e.g. Python Mentor)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colors.textPrimary,
+                        unfocusedTextColor = colors.textPrimary,
+                        focusedBorderColor = colors.accent,
+                        unfocusedBorderColor = colors.border,
+                        focusedLabelColor = colors.accent,
+                        unfocusedLabelColor = colors.textSecondary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = subtitle,
+                    onValueChange = { subtitle = it },
+                    label = { Text("Role / Subtitle (e.g. Code Reviewer)") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colors.textPrimary,
+                        unfocusedTextColor = colors.textPrimary,
+                        focusedBorderColor = colors.accent,
+                        unfocusedBorderColor = colors.border,
+                        focusedLabelColor = colors.accent,
+                        unfocusedLabelColor = colors.textSecondary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = systemPrompt,
+                    onValueChange = { systemPrompt = it },
+                    label = { Text("System Instructions") },
+                    minLines = 3,
+                    maxLines = 6,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = colors.textPrimary,
+                        unfocusedTextColor = colors.textPrimary,
+                        focusedBorderColor = colors.accent,
+                        unfocusedBorderColor = colors.border,
+                        focusedLabelColor = colors.accent,
+                        unfocusedLabelColor = colors.textSecondary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (title.isNotBlank() && systemPrompt.isNotBlank()) {
+                        onSave(title, subtitle, systemPrompt)
+                    }
+                },
+                enabled = title.isNotBlank() && systemPrompt.isNotBlank()
+            ) {
+                Text("Create", color = if (title.isNotBlank() && systemPrompt.isNotBlank()) colors.accent else colors.textTertiary)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = colors.textSecondary)
+            }
+        }
+    )
 }
 

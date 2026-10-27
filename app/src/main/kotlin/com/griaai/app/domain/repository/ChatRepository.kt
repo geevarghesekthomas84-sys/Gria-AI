@@ -6,6 +6,7 @@ import com.griaai.app.domain.model.AIModel
 import com.griaai.app.domain.model.ConnectionStatus
 import com.griaai.app.domain.model.Conversation
 import com.griaai.app.domain.model.Message
+import com.griaai.app.domain.model.Persona
 import com.griaai.app.domain.model.ServerConfig
 import kotlinx.coroutines.flow.Flow
 
@@ -47,4 +48,9 @@ interface ChatRepository {
     suspend fun setDefaultModel(modelId: String)
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setDarkTheme(isDark: Boolean)
+
+    // Personas
+    suspend fun getCustomPersonas(): List<Persona>
+    suspend fun saveCustomPersona(persona: Persona)
+    suspend fun deleteCustomPersona(id: String)
 }
