@@ -106,6 +106,7 @@ fun SettingsScreen(
         mutableStateOf(sanitized)
     }
     var isDarkTheme by remember(currentConfig) { mutableStateOf(currentConfig.isDarkTheme) }
+    val isBiometricEnabled by repository.isBiometricEnabled.collectAsState(initial = false)
 
     var isModelLoaded by remember { mutableStateOf(repository.onDeviceEngine.isModelLoaded) }
     var loadedModelName by remember { mutableStateOf(repository.onDeviceEngine.loadedModelName) }
@@ -765,6 +766,46 @@ fun SettingsScreen(
                             isDarkTheme = it
                             scope.launch {
                                 repository.setDarkTheme(it)
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.surfaceElevated,
+                            checkedTrackColor = colors.accent
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = colors.surfaceElevated,
+                border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Biometric Vault Lock",
+                            style = GriaTypography.bodyMedium.copy(
+                                color = colors.textPrimary,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                        Text(
+                            text = "Require fingerprint or screen lock to open Gria-AI",
+                            style = GriaTypography.bodySmall.copy(color = colors.textTertiary)
+                        )
+                    }
+                    Switch(
+                        checked = isBiometricEnabled,
+                        onCheckedChange = {
+                            scope.launch {
+                                repository.setBiometricEnabled(it)
                             }
                         },
                         colors = SwitchDefaults.colors(

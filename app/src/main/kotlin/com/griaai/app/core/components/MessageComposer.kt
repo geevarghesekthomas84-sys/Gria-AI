@@ -53,6 +53,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicNone
@@ -97,6 +98,7 @@ fun MessageComposer(
     selectedImageUri: String? = null,
     onSelectImage: (String?) -> Unit = {},
     onClearImage: () -> Unit = {},
+    onEnhancePrompt: () -> Unit = {},
     modifier: Modifier = Modifier,
     placeholder: String = "Message Gria-AI..."
 ) {
@@ -306,6 +308,30 @@ fun MessageComposer(
                             contentDescription = "Attach image",
                             tint = if (selectedImageUri != null) colors.accent else colors.textSecondary,
                             modifier = Modifier.size(17.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+
+                // Prompt "Magic Wand" Auto-Enhancer
+                if (text.isNotBlank() && !isStreaming) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(colors.accent.copy(alpha = 0.12f))
+                            .clickable {
+                                GriaHaptic.confirm(view)
+                                onEnhancePrompt()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = "Enhance prompt",
+                            tint = colors.accent,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
 

@@ -309,6 +309,12 @@ class ChatRepositoryImpl(
         dataStore.setDarkTheme(isDark)
     }
 
+    override val isBiometricEnabled: Flow<Boolean> = dataStore.isBiometricEnabled
+
+    override suspend fun setBiometricEnabled(enabled: Boolean) {
+        dataStore.setBiometricEnabled(enabled)
+    }
+
     override suspend fun getCustomPersonas(): List<Persona> = dbHelper.getCustomPersonas()
 
     override suspend fun saveCustomPersona(persona: Persona) {

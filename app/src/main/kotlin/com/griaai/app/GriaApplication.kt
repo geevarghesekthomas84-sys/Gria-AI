@@ -55,9 +55,6 @@ class GriaApplication : Application() {
 
         CoroutineScope(Dispatchers.IO).launch {
             settingsDataStore.migrateOldSystemPrompt()
-            runCatching {
-                onDeviceEngine.tryAutoLoadAvailableModel()
-            }
         }
     }
 
@@ -66,4 +63,3 @@ class GriaApplication : Application() {
             private set
     }
 }
-

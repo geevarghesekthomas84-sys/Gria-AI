@@ -337,6 +337,7 @@ fun ChatScreen(
                         selectedImageUri = uiState.selectedImageUri,
                         onSelectImage = { viewModel.onImageSelected(it) },
                         onClearImage = { viewModel.clearSelectedImage() },
+                        onEnhancePrompt = { viewModel.enhancePrompt() },
                         placeholder = "Message Gria..."
                     )
                 }

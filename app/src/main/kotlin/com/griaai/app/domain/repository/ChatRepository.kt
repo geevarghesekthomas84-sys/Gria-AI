@@ -48,6 +48,8 @@ interface ChatRepository {
     suspend fun setDefaultModel(modelId: String)
     suspend fun setOnboardingCompleted(completed: Boolean)
     suspend fun setDarkTheme(isDark: Boolean)
+    val isBiometricEnabled: Flow<Boolean>
+    suspend fun setBiometricEnabled(enabled: Boolean)
 
     // Personas
     suspend fun getCustomPersonas(): List<Persona>

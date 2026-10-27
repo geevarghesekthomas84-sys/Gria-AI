@@ -83,6 +83,13 @@ class ChatViewModel(
         _uiState.value = _uiState.value.copy(inputText = newText)
     }
 
+    fun enhancePrompt() {
+        val current = _uiState.value.inputText.trim()
+        if (current.isBlank()) return
+        val enhanced = com.griaai.app.core.utils.PromptEnhancer.enhance(current)
+        _uiState.value = _uiState.value.copy(inputText = enhanced)
+    }
+
     fun toggleModelSelector(open: Boolean) {
         _uiState.value = _uiState.value.copy(isModelSelectorOpen = open)
     }
@@ -538,6 +545,21 @@ class ChatViewModel(
             _uiState.value = _uiState.value.copy(
                 messages = _uiState.value.messages.filter { it.id != messageId }
             )
+        }
+    }
+
+    fun forkConversationAtMessage(messageId: String, newContent: String) {
+        val currentMessages = _uiState.value.messages
+        val index = currentMessages.indexOfFirst { it.id == messageId }
+        if (index == -1) return
+
+        val truncated = currentMessages.take(index)
+        val messagesToDelete = currentMessages.drop(index)
+        _uiState.value = _uiState.value.copy(messages = truncated)
+
+        viewModelScope.launch {
+            messagesToDelete.forEach { repository.deleteMessage(it.id) }
+            sendMessage(newContent)
         }
     }
 

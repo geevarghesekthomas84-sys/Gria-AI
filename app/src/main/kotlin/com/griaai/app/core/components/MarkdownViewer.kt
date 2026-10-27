@@ -1,5 +1,7 @@
 package com.griaai.app.core.components
 
+import android.webkit.WebChromeClient
+import android.webkit.WebView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,10 +27,16 @@ import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -149,6 +158,86 @@ object MarkdownParser {
 }
 
 @Composable
+fun ThinkingBlock(
+    thought: String,
+    isStreaming: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalGriaColors.current
+    var isExpanded by remember { mutableStateOf(isStreaming) }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = colors.surfaceSubtle.copy(alpha = 0.6f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.borderSubtle),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { isExpanded = !isExpanded },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (isStreaming) "💭 Thinking..." else "💭 Thought Process",
+                    style = GriaTypography.labelMedium.copy(
+                        color = if (isStreaming) colors.accent else colors.textSecondary,
+                        fontWeight = FontWeight.Medium
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (isStreaming) {
+                    val transition = rememberInfiniteTransition(label = "thinking_pulse")
+                    val alpha by transition.animateFloat(
+                        initialValue = 0.3f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(600, easing = LinearEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "pulse"
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(colors.accent.copy(alpha = alpha))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = colors.textTertiary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded) {
+                Column(modifier = Modifier.padding(top = 8.dp)) {
+                    HorizontalDivider(color = colors.borderSubtle, thickness = 0.5.dp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = thought.trim(),
+                        style = GriaTypography.bodySmall.copy(
+                            color = colors.textSecondary,
+                            fontStyle = FontStyle.Italic,
+                            lineHeight = 18.sp
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun MarkdownViewer(
     content: String,
     modifier: Modifier = Modifier,
@@ -156,7 +245,19 @@ fun MarkdownViewer(
     isStreaming: Boolean = false
 ) {
     val colors = LocalGriaColors.current
-    val blocks = remember(content) { MarkdownParser.parse(content) }
+    val hasThink = remember(content) { content.contains("<think>") }
+    val (thinkContent, mainContent, isThinkingComplete) = remember(content) {
+        if (hasThink) {
+            val think = content.substringAfter("<think>").substringBefore("</think>")
+            val complete = content.contains("</think>")
+            val rest = if (complete) content.substringAfter("</think>").trimStart() else ""
+            Triple(think, rest, complete)
+        } else {
+            Triple(null, content, true)
+        }
+    }
+
+    val blocks = remember(mainContent) { MarkdownParser.parse(mainContent) }
 
     val inlineContent = remember {
         mapOf(
@@ -173,6 +274,13 @@ fun MarkdownViewer(
     }
 
     Column(modifier = modifier) {
+        if (thinkContent != null) {
+            ThinkingBlock(
+                thought = thinkContent,
+                isStreaming = isStreaming && !isThinkingComplete
+            )
+        }
+
         blocks.forEachIndexed { index, block ->
             val isLastBlock = index == blocks.size - 1
             when (block) {
@@ -324,6 +432,15 @@ fun CodeBlock(
     var copied by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
+    val canPreview = remember(language, code) {
+        val l = language.lowercase().trim()
+        l in listOf("html", "htm", "svg") ||
+                code.trimStart().startsWith("<!DOCTYPE", ignoreCase = true) ||
+                code.trimStart().startsWith("<html", ignoreCase = true) ||
+                code.trimStart().startsWith("<svg", ignoreCase = true)
+    }
+    var showPreview by remember { mutableStateOf(false) }
+
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = colors.codeBackground,
@@ -348,6 +465,36 @@ fun CodeBlock(
                 )
 
                 Spacer(modifier = Modifier.weight(1f))
+
+                // Interactive Live Canvas tab toggle
+                if (canPreview) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(if (showPreview) colors.surfaceSubtle else colors.codeBackground)
+                            .clickable {
+                                GriaHaptic.click(view)
+                                showPreview = !showPreview
+                            }
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (showPreview) Icons.Default.Code else Icons.Default.Visibility,
+                            contentDescription = if (showPreview) "View Code" else "Live Canvas",
+                            tint = if (showPreview) colors.accent else colors.textSecondary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = if (showPreview) "Code" else "Canvas",
+                            style = GriaTypography.labelSmall.copy(
+                                color = if (showPreview) colors.accent else colors.textSecondary
+                            )
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
 
                 Row(
                     modifier = Modifier
@@ -380,24 +527,49 @@ fun CodeBlock(
                 }
             }
 
-            // Code Content with Quiet Luxury Syntax Highlighting
-            val highlightedCode = remember(code, language) {
-                CodeHighlighter.highlight(code, language, colors.codeText)
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp)
-            ) {
-                Text(
-                    text = highlightedCode,
-                    color = colors.codeText,
-                    style = GriaTypography.bodyMedium.copy(
-                        fontFamily = FontFamily.Monospace,
-                        lineHeight = 20.sp
-                    )
+            if (canPreview && showPreview) {
+                AndroidView(
+                    factory = { ctx ->
+                        WebView(ctx).apply {
+                            settings.javaScriptEnabled = true
+                            settings.domStorageEnabled = true
+                            webChromeClient = WebChromeClient()
+                        }
+                    },
+                    update = { webView ->
+                        val payload = if (language.lowercase() == "svg") {
+                            "<!DOCTYPE html><html><body style='margin:0;padding:16px;display:flex;align-items:center;justify-content:center;background:#18181b;'>$code</body></html>"
+                        } else {
+                            code
+                        }
+                        webView.loadDataWithBaseURL(null, payload, "text/html", "UTF-8", null)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(6.dp))
                 )
+            } else {
+                // Code Content with Quiet Luxury Syntax Highlighting
+                val highlightedCode = remember(code, language) {
+                    CodeHighlighter.highlight(code, language, colors.codeText)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp)
+                ) {
+                    Text(
+                        text = highlightedCode,
+                        color = colors.codeText,
+                        style = GriaTypography.bodyMedium.copy(
+                            fontFamily = FontFamily.Monospace,
+                            lineHeight = 20.sp
+                        )
+                    )
+                }
             }
         }
     }

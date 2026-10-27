@@ -15,12 +15,15 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.zip.ZipFile
 
 class OnDeviceLlmEngine(private val context: Context) {
 
     companion object {
         private val SPECIAL_TOKEN_REGEX = Regex("<bos>|<eos>|<start_of_turn>|<end_of_turn>|<s>|</s>|<pad>|<unk>|<\\|im_end\\|>|<\\|im_start\\|>")
         private val STOP_TOKENS = listOf("<end_of_turn>", "<eos>", "</s>", "<bos>", "<|im_end|>")
+
+        val SUPPORTED_EXTENSIONS = listOf(".bin", ".task", ".tflite", ".litert")
     }
 
     private var currentModelPath: String? = null
@@ -60,7 +63,7 @@ class OnDeviceLlmEngine(private val context: Context) {
             try {
                 if (dir.exists() && dir.isDirectory) {
                     dir.listFiles { file ->
-                        file.isFile && (file.name.endsWith(".bin") || file.name.endsWith(".task"))
+                        file.isFile && SUPPORTED_EXTENSIONS.any { ext -> file.name.endsWith(ext, ignoreCase = true) }
                     }?.let { filesFound.addAll(it) }
                 }
             } catch (e: Exception) {
@@ -79,13 +82,78 @@ class OnDeviceLlmEngine(private val context: Context) {
         )
     }
 
+    /**
+     * Validates that the file is an authentic, readable, non-corrupted model binary
+     * before passing it to native MediaPipe JNI (preventing native abort() crashes).
+     */
+    fun validateModelFile(modelFile: File): Result<Unit> {
+        if (!modelFile.exists() || !modelFile.canRead()) {
+            return Result.failure(IllegalArgumentException("Model file does not exist or cannot be read: ${modelFile.name}"))
+        }
+
+        // LLM weights on device are at least ~20 MB (even 0.5B models are >250 MB).
+        // HTML error pages, truncated downloads, or stubs are usually < 5 MB.
+        if (modelFile.length() < 20L * 1024 * 1024) {
+            val sizeKb = modelFile.length() / 1024
+            return Result.failure(
+                IllegalArgumentException(
+                    "Model file is incomplete or too small ($sizeKb KB). Ensure the full weights finished downloading."
+                )
+            )
+        }
+
+        // Detect if the downloaded file is an HTML error page (e.g. Hugging Face / Kaggle 401/403/404 login page)
+        try {
+            val sample = ByteArray(128)
+            val read = modelFile.inputStream().use { it.read(sample) }
+            if (read > 0) {
+                val headerStr = String(sample, 0, read, Charsets.US_ASCII)
+                if (headerStr.contains("<!DOCTYPE", ignoreCase = true) ||
+                    headerStr.contains("<html", ignoreCase = true) ||
+                    headerStr.contains("404: Not Found", ignoreCase = true) ||
+                    headerStr.contains("Entry Not Found", ignoreCase = true)
+                ) {
+                    return Result.failure(
+                        IllegalArgumentException(
+                            "The file '${modelFile.name}' is an HTML web page (login or 404 error), not a binary model."
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("OnDeviceLlmEngine", "Error checking file sample: ${e.message}")
+        }
+
+        // If .task bundle, verify zip archive integrity
+        if (modelFile.name.endsWith(".task", ignoreCase = true)) {
+            try {
+                ZipFile(modelFile).use { zip ->
+                    if (zip.size() == 0) {
+                        return Result.failure(IllegalArgumentException("Corrupted .task bundle: archive is empty."))
+                    }
+                }
+            } catch (e: Exception) {
+                return Result.failure(
+                    IllegalArgumentException(
+                        "Corrupted or invalid .task archive: ${e.localizedMessage ?: "Invalid zip"}"
+                    )
+                )
+            }
+        }
+
+        return Result.success(Unit)
+    }
+
     fun tryAutoLoadAvailableModel(): Boolean {
         if (isModelLoaded) return true
 
         val candidates = discoverAllAvailableModels()
         for (candidate in candidates) {
-            val res = loadModel(candidate)
-            if (res.isSuccess) return true
+            val validation = validateModelFile(candidate)
+            if (validation.isSuccess) {
+                val res = loadModel(candidate)
+                if (res.isSuccess) return true
+            }
         }
 
         return false
@@ -93,11 +161,12 @@ class OnDeviceLlmEngine(private val context: Context) {
 
     @Synchronized
     fun loadModel(modelFile: File): Result<Unit> {
-        return try {
-            if (!modelFile.exists() || !modelFile.canRead()) {
-                return Result.failure(IllegalArgumentException("Model file does not exist or cannot be read: ${modelFile.absolutePath}"))
-            }
+        val validation = validateModelFile(modelFile)
+        if (validation.isFailure) {
+            return validation
+        }
 
+        return try {
             if (currentModelPath == modelFile.absolutePath && llmInference != null) {
                 return Result.success(Unit)
             }

@@ -29,6 +29,7 @@ class SettingsDataStore(private val context: Context) {
         val KEY_IS_DARK_THEME = booleanPreferencesKey("is_dark_theme")
         val KEY_MAX_CONTEXT_MESSAGES = intPreferencesKey("max_context_messages")
         val KEY_ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val KEY_BIOMETRIC_LOCK = booleanPreferencesKey("biometric_lock")
     }
 
     val serverConfigFlow: Flow<ServerConfig> = context.dataStore.data.map { prefs ->
@@ -57,6 +58,10 @@ class SettingsDataStore(private val context: Context) {
 
     val isOnboardingCompleted: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_ONBOARDING_COMPLETED] ?: false
+    }
+
+    val isBiometricEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_BIOMETRIC_LOCK] ?: false
     }
 
     suspend fun migrateOldSystemPrompt() {
@@ -109,6 +114,12 @@ class SettingsDataStore(private val context: Context) {
     suspend fun setDarkTheme(isDark: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[KEY_IS_DARK_THEME] = isDark
+        }
+    }
+
+    suspend fun setBiometricEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_BIOMETRIC_LOCK] = enabled
         }
     }
 }

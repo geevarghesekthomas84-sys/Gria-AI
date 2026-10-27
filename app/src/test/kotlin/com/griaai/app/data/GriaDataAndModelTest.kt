@@ -104,7 +104,6 @@ class GriaDataAndModelTest {
         )
 
         val encoded = json.encodeToString(ChatCompletionRequestDto.serializer(), request)
-        println("ENCODED_JSON: $encoded")
         assertTrue("Expected stream in $encoded", encoded.contains("stream"))
         assertTrue("Expected model in $encoded", encoded.contains("qwen2.5-coder-7b-instruct"))
     }
@@ -174,5 +173,51 @@ class GriaDataAndModelTest {
         val pureBos = "<bos><bos><bos>"
         val sanitizedBos = specialTokenRegex.replace(pureBos, "").trim()
         assertEquals("", sanitizedBos)
+    }
+
+    @Test
+    fun testPromptEnhancerCoding() {
+        val raw = "write snake game in python"
+        val enhanced = com.griaai.app.core.utils.PromptEnhancer.enhance(raw)
+        assertTrue(enhanced.contains("staff-level software engineer"))
+        assertTrue(enhanced.contains("Idiomatic, production-grade code"))
+    }
+
+    @Test
+    fun testPromptEnhancerExplain() {
+        val raw = "explain quantum computing"
+        val enhanced = com.griaai.app.core.utils.PromptEnhancer.enhance(raw)
+        assertTrue(enhanced.contains("Core Mechanics & Fundamentals"))
+        assertTrue(enhanced.contains("Common Pitfalls"))
+    }
+
+    @Test
+    fun testModelHubCatalogInvariants() {
+        val models = com.griaai.app.core.llm.ModelHubCatalog.AVAILABLE_MODELS
+        assertTrue(models.isNotEmpty())
+        assertTrue(models.any { it.id == "gemma-2b-gpu" })
+        assertEquals("gemma-2b-it-gpu-int4.bin", models.first { it.id == "gemma-2b-gpu" }.fileName)
+        assertTrue(models.any { it.format == ".bin" })
+        assertTrue(models.any { it.format == ".task" })
+    }
+
+    @Test
+    fun testThinkingTagParsing() {
+        val text = "<think>Let me calculate 2+2. 2+2 equals 4.</think>The answer is 4."
+        val hasThink = text.contains("<think>")
+        assertTrue(hasThink)
+        val think = text.substringAfter("<think>").substringBefore("</think>").trim()
+        val rest = text.substringAfter("</think>").trim()
+        assertEquals("Let me calculate 2+2. 2+2 equals 4.", think)
+        assertEquals("The answer is 4.", rest)
+    }
+
+    @Test
+    fun testSupportedModelFormats() {
+        val exts = com.griaai.app.core.llm.OnDeviceLlmEngine.SUPPORTED_EXTENSIONS
+        assertTrue(exts.contains(".bin"))
+        assertTrue(exts.contains(".task"))
+        assertTrue(exts.contains(".tflite"))
+        assertTrue(exts.contains(".litert"))
     }
 }
