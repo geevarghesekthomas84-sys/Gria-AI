@@ -42,14 +42,14 @@ import kotlin.math.sin
  * Premium Quiet Luxury AI Responding Indicator.
  *
  * Displays while the local AI model is processing/thinking before tokens arrive:
- * - Animated rotating & breathing Nexus Star
+ * - Animated rotating & breathing Gria Star
  * - Liquid-smooth undulating wave dots
- * - Soft shimmering "Nexus is thinking..." label
+ * - Soft shimmering "Gria-AI is thinking..." label
  */
 @Composable
 fun AiRespondingIndicator(
     modifier: Modifier = Modifier,
-    label: String = "Nexus is thinking..."
+    label: String = "Gria-AI is thinking..."
 ) {
     val colors = LocalNexusColors.current
     val infiniteTransition = rememberInfiniteTransition(label = "ai_responding_transition")

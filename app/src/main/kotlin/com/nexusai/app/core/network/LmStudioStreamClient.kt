@@ -2,7 +2,6 @@ package com.nexusai.app.core.network
 
 import com.nexusai.app.data.remote.dto.ChatCompletionChunkDto
 import com.nexusai.app.data.remote.dto.ChatCompletionRequestDto
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -34,7 +33,7 @@ class LmStudioStreamClient(
     }
 ) {
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS) // Long timeout for continuous token streaming
         .writeTimeout(30, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
@@ -46,18 +45,33 @@ class LmStudioStreamClient(
         baseUrl: String,
         request: ChatCompletionRequestDto
     ): Flow<StreamEvent> = callbackFlow {
-        val url = if (baseUrl.endsWith("/")) "${baseUrl}v1/chat/completions" else "$baseUrl/v1/chat/completions"
-        val requestBodyString = json.encodeToString(ChatCompletionRequestDto.serializer(), request)
-        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val sanitizedBase = baseUrl.trim()
+        val normalizedBase = when {
+            sanitizedBase.startsWith("http://", ignoreCase = true) || sanitizedBase.startsWith("https://", ignoreCase = true) -> sanitizedBase
+            else -> "http://$sanitizedBase"
+        }.removeSuffix("/v1/chat/completions")
+            .removeSuffix("/v1")
+            .trimEnd('/')
 
-        val httpRequest = Request.Builder()
-            .url(url)
-            .header("Accept", "text/event-stream")
-            .header("Content-Type", "application/json")
-            .post(requestBodyString.toRequestBody(mediaType))
-            .build()
+        val url = "$normalizedBase/v1/chat/completions"
 
         var eventSource: EventSource? = null
+
+        val httpRequest = try {
+            val requestBodyString = json.encodeToString(ChatCompletionRequestDto.serializer(), request)
+            val mediaType = "application/json; charset=utf-8".toMediaType()
+
+            Request.Builder()
+                .url(url)
+                .header("Accept", "text/event-stream")
+                .header("Content-Type", "application/json")
+                .post(requestBodyString.toRequestBody(mediaType))
+                .build()
+        } catch (e: Exception) {
+            trySend(StreamEvent.Error(e))
+            close()
+            return@callbackFlow
+        }
 
         val listener = object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: Response) {
@@ -78,7 +92,11 @@ class LmStudioStreamClient(
                 }
 
                 try {
-                    val chunk = json.decodeFromString(ChatCompletionChunkDto.serializer(), trimmed)
+                    val cleanJson = if (trimmed.startsWith("data:", ignoreCase = true)) {
+                        trimmed.substring(5).trim()
+                    } else trimmed
+
+                    val chunk = json.decodeFromString(ChatCompletionChunkDto.serializer(), cleanJson)
                     val token = chunk.choices.firstOrNull()?.delta?.content
                     if (!token.isNullOrEmpty()) {
                         trySend(StreamEvent.Token(token))
@@ -98,9 +116,14 @@ class LmStudioStreamClient(
                 t: Throwable?,
                 response: Response?
             ) {
-                val error = t ?: IOException("SSE connection failed with response code: ${response?.code}")
+                val errorMsg = when {
+                    t != null -> t.localizedMessage ?: t.toString()
+                    response != null -> "LM Studio server responded with HTTP ${response.code}: ${response.message}"
+                    else -> "Connection failed to LM Studio at $normalizedBase. Ensure LM Studio is active."
+                }
+                val error = t ?: IOException(errorMsg)
                 trySend(StreamEvent.Error(error))
-                close(error)
+                close()
             }
         }
 
@@ -108,7 +131,7 @@ class LmStudioStreamClient(
             eventSource = sseFactory.newEventSource(httpRequest, listener)
         } catch (e: Exception) {
             trySend(StreamEvent.Error(e))
-            close(e)
+            close()
         }
 
         awaitClose {

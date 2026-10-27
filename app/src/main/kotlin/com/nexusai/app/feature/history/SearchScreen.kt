@@ -178,7 +178,7 @@ fun SearchScreen(
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 Text(
-                                    text = if (msg.role == MessageRole.USER) "You" else "Nexus",
+                                    text = if (msg.role == MessageRole.USER) "You" else "Gria-AI",
                                     style = NexusTypography.labelSmall.copy(
                                         color = if (msg.role == MessageRole.USER) colors.accent else colors.textSecondary,
                                         fontWeight = FontWeight.SemiBold

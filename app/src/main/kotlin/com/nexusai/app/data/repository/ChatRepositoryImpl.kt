@@ -54,9 +54,18 @@ class ChatRepositoryImpl(
         .build()
 
     private fun createApi(baseUrl: String, client: OkHttpClient = okHttpClient): LmStudioApi {
-        val sanitizedUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+        val sanitized = baseUrl.trim()
+        val normalized = when {
+            sanitized.startsWith("http://", ignoreCase = true) || sanitized.startsWith("https://", ignoreCase = true) -> sanitized
+            else -> "http://$sanitized"
+        }.removeSuffix("/v1/models")
+            .removeSuffix("/v1/chat/completions")
+            .removeSuffix("/v1")
+            .trimEnd('/')
+
+        val urlWithSlash = "$normalized/"
         return Retrofit.Builder()
-            .baseUrl(sanitizedUrl)
+            .baseUrl(urlWithSlash)
             .client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
@@ -124,14 +133,14 @@ class ChatRepositoryImpl(
         }
     }
 
-    override suspend fun fetchModels(baseUrl: String): Result<List<AIModel>> {
+    override suspend fun fetchModels(baseUrl: String): Result<List<AIModel>> = withContext(Dispatchers.IO) {
         val onDeviceModel = AIModel(
             id = ON_DEVICE_MODEL_ID,
             objectType = "on-device",
             ownedBy = if (onDeviceEngine.isModelLoaded) "⚡ On-Device (${onDeviceEngine.loadedModelName})" else "⚡ On-Device (Gemma Local)"
         )
 
-        return try {
+        try {
             val remoteResult = testConnection(baseUrl)
             if (remoteResult.isSuccess) {
                 val remoteModels = remoteResult.getOrNull().orEmpty()

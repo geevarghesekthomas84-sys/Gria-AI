@@ -89,7 +89,24 @@ data class ServerConfig(
 ) {
     val baseUrl: String
         get() {
-            val scheme = if (useHttps) "https" else "http"
-            return "$scheme://$ipAddress:$port"
+            var raw = ipAddress.trim()
+            var scheme = if (useHttps) "https" else "http"
+            if (raw.startsWith("https://", ignoreCase = true)) {
+                scheme = "https"
+                raw = raw.substring(8)
+            } else if (raw.startsWith("http://", ignoreCase = true)) {
+                scheme = "http"
+                raw = raw.substring(7)
+            }
+            raw = raw.removeSuffix("/v1/chat/completions")
+                .removeSuffix("/v1/models")
+                .removeSuffix("/v1")
+                .trimEnd('/')
+            if (raw.isBlank()) raw = "127.0.0.1"
+            return if (raw.contains(":")) {
+                "$scheme://$raw"
+            } else {
+                "$scheme://$raw:$port"
+            }
         }
 }

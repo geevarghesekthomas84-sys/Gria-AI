@@ -121,11 +121,11 @@ class NexusDataAndModelTest {
             id = "m1",
             conversationId = conv.id,
             role = MessageRole.USER,
-            content = "Hello Nexus!",
+            content = "Hello Gria-AI!",
             status = MessageStatus.COMPLETE
         )
         assertEquals(MessageRole.USER, msg.role)
         assertEquals(MessageStatus.COMPLETE, msg.status)
-        assertEquals("Hello Nexus!", msg.content)
+        assertEquals("Hello Gria-AI!", msg.content)
     }
 }

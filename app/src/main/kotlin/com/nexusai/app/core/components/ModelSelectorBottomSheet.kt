@@ -27,6 +27,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +52,7 @@ fun ModelSelectorBottomSheet(
     sheetState: SheetState = rememberModalBottomSheetState()
 ) {
     val colors = LocalNexusColors.current
+    val scope = rememberCoroutineScope()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -81,7 +84,7 @@ fun ModelSelectorBottomSheet(
                         style = NexusTypography.headlineSmall.copy(color = colors.textPrimary)
                     )
                     Text(
-                        text = "Local inference models running on LM Studio",
+                        text = "On-Device Neural Engine & LM Studio Models",
                         style = NexusTypography.bodySmall.copy(color = colors.textSecondary)
                     )
                 }
@@ -136,8 +139,11 @@ fun ModelSelectorBottomSheet(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .clickable {
-                                onSelectModel(model.id)
-                                onDismiss()
+                                scope.launch {
+                                    runCatching { sheetState.hide() }
+                                    onSelectModel(model.id)
+                                    onDismiss()
+                                }
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically

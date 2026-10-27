@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
@@ -35,10 +36,9 @@ class OnDeviceLlmEngine(private val context: Context) {
     val loadedModelPath: String?
         get() = currentModelPath
 
-    init {
-        // Automatically scan for existing models in app directory or Downloads on startup
-        tryAutoLoadAvailableModel()
-    }
+    @Volatile
+    var isGenerating: Boolean = false
+        private set
 
     fun discoverAllAvailableModels(): List<File> {
         val candidateDirs = listOfNotNull(
@@ -199,45 +199,64 @@ class OnDeviceLlmEngine(private val context: Context) {
     fun generateStream(prompt: String): Flow<String> = callbackFlow {
         val inference = llmInference
         if (inference == null) {
-            close(IllegalStateException("No on-device model loaded. Please select a model file in Settings."))
+            trySend("⚠️ No on-device model loaded. Select a Gemma model in Settings.")
+            close()
             return@callbackFlow
         }
+
+        if (isGenerating) {
+            trySend("⚠️ Another on-device generation is already running. Please wait or tap stop.")
+            close()
+            return@callbackFlow
+        }
+
+        isGenerating = true
 
         activeChunkListener = { partial, done ->
             if (partial.isNotEmpty()) {
                 trySend(partial)
             }
             if (done) {
-                channel.close()
+                isGenerating = false
+                close()
             }
         }
 
         activeErrorListener = { throwable ->
-            channel.close(throwable)
+            isGenerating = false
+            Log.e("OnDeviceLlmEngine", "Inference error", throwable)
+            trySend("\n[Inference Error: ${throwable.localizedMessage}]")
+            close()
         }
 
         try {
             inference.generateResponseAsync(prompt)
         } catch (e: Exception) {
-            channel.close(e)
+            isGenerating = false
+            Log.e("OnDeviceLlmEngine", "Failed to launch generateResponseAsync", e)
+            trySend("\n[Inference Exception: ${e.localizedMessage}]")
+            close()
         }
 
         awaitClose {
+            isGenerating = false
             activeChunkListener = null
             activeErrorListener = null
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     @Synchronized
     fun close() {
+        isGenerating = false
+        activeChunkListener = null
+        activeErrorListener = null
         try {
             llmInference?.close()
         } catch (e: Exception) {
             Log.w("OnDeviceLlmEngine", "Error closing inference session", e)
+        } finally {
+            llmInference = null
+            currentModelPath = null
         }
-        llmInference = null
-        currentModelPath = null
-        activeChunkListener = null
-        activeErrorListener = null
     }
 }

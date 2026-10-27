@@ -111,13 +111,20 @@ fun SettingsScreen(
     var loadedModelName by remember { mutableStateOf(repository.onDeviceEngine.loadedModelName) }
     var isImportingModel by remember { mutableStateOf(false) }
     var importProgress by remember { mutableFloatStateOf(0f) }
-    var discoveredModels by remember { mutableStateOf(repository.onDeviceEngine.discoverAllAvailableModels()) }
+    var discoveredModels by remember { mutableStateOf(emptyList<File>()) }
     var hasAllFilesAccess by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 Environment.isExternalStorageManager()
             } else true
         )
+    }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val list = repository.onDeviceEngine.discoverAllAvailableModels()
+            discoveredModels = list
+        }
     }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -362,17 +369,23 @@ fun SettingsScreen(
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                     hasAllFilesAccess = Environment.isExternalStorageManager()
                                 }
-                                val found = repository.onDeviceEngine.tryAutoLoadAvailableModel()
-                                isModelLoaded = repository.onDeviceEngine.isModelLoaded
-                                loadedModelName = repository.onDeviceEngine.loadedModelName
-                                discoveredModels = repository.onDeviceEngine.discoverAllAvailableModels()
-                                if (found) {
-                                    scope.launch {
-                                        repository.setDefaultModel("ondevice:gemma")
+                                Toast.makeText(context, "Scanning local storage for models...", Toast.LENGTH_SHORT).show()
+                                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                    val found = repository.onDeviceEngine.tryAutoLoadAvailableModel()
+                                    val list = repository.onDeviceEngine.discoverAllAvailableModels()
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                        isModelLoaded = repository.onDeviceEngine.isModelLoaded
+                                        loadedModelName = repository.onDeviceEngine.loadedModelName
+                                        discoveredModels = list
+                                        if (found) {
+                                            scope.launch {
+                                                repository.setDefaultModel("ondevice:gemma")
+                                            }
+                                            Toast.makeText(context, "Loaded $loadedModelName onto Adreno GPU!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            Toast.makeText(context, "No Gemma model found in /sdcard/models or Downloads", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
-                                    Toast.makeText(context, "Loaded $loadedModelName onto Adreno GPU!", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    Toast.makeText(context, "No Gemma model found in /sdcard/models or Downloads", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier.weight(1f),

@@ -11,15 +11,15 @@ data class ModelsResponseDto(
 
 @Serializable
 data class ModelItemDto(
-    val id: String,
+    val id: String = "",
     @SerialName("object") val objectType: String = "model",
     @SerialName("owned_by") val ownedBy: String = "lmstudio"
 )
 
 @Serializable
 data class ChatCompletionRequestDto(
-    val model: String,
-    val messages: List<ChatMessageDto>,
+    val model: String = "",
+    val messages: List<ChatMessageDto> = emptyList(),
     val temperature: Float = 0.7f,
     @SerialName("max_tokens") val maxTokens: Int = 2048,
     val stream: Boolean = true
@@ -27,8 +27,8 @@ data class ChatCompletionRequestDto(
 
 @Serializable
 data class ChatMessageDto(
-    val role: String,
-    val content: String
+    val role: String = "user",
+    val content: String = ""
 )
 
 @Serializable

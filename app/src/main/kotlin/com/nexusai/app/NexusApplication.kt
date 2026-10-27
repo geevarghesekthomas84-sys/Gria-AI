@@ -55,6 +55,9 @@ class NexusApplication : Application() {
 
         CoroutineScope(Dispatchers.IO).launch {
             settingsDataStore.migrateOldSystemPrompt()
+            runCatching {
+                onDeviceEngine.tryAutoLoadAvailableModel()
+            }
         }
     }
 

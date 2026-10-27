@@ -78,7 +78,7 @@ fun MessageComposer(
     isStreaming: Boolean,
     onStartVoiceLive: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    placeholder: String = "Message Nexus..."
+    placeholder: String = "Message Gria-AI..."
 ) {
     val colors = LocalNexusColors.current
     val context = LocalContext.current
@@ -107,7 +107,7 @@ fun MessageComposer(
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Nexus...")
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Gria-AI...")
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
             }
             isListening = true

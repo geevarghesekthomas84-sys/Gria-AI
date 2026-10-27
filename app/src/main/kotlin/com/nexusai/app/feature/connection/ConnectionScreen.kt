@@ -83,8 +83,25 @@ fun ConnectionScreen(
 
     fun testConnectionNow() {
         val port = portText.toIntOrNull() ?: 1234
-        val scheme = if (useHttps) "https" else "http"
-        val testBaseUrl = "$scheme://$ipAddress:$port"
+        var cleanIp = ipAddress.trim()
+        var scheme = if (useHttps) "https" else "http"
+        if (cleanIp.startsWith("https://", ignoreCase = true)) {
+            scheme = "https"
+            cleanIp = cleanIp.substring(8)
+        } else if (cleanIp.startsWith("http://", ignoreCase = true)) {
+            scheme = "http"
+            cleanIp = cleanIp.substring(7)
+        }
+        cleanIp = cleanIp.removeSuffix("/v1/models")
+            .removeSuffix("/v1/chat/completions")
+            .removeSuffix("/v1")
+            .trimEnd('/')
+
+        val testBaseUrl = if (cleanIp.contains(":")) {
+            "$scheme://$cleanIp"
+        } else {
+            "$scheme://$cleanIp:$port"
+        }
 
         isTesting = true
         testStatus = ConnectionStatus.CONNECTING
@@ -372,10 +389,24 @@ fun ConnectionScreen(
                 onClick = {
                     val port = portText.toIntOrNull() ?: 1234
                     val timeout = timeoutText.toIntOrNull() ?: 60
+                    var cleanIp = ipAddress.trim()
+                    var finalHttps = useHttps
+                    if (cleanIp.startsWith("https://", ignoreCase = true)) {
+                        finalHttps = true
+                        cleanIp = cleanIp.substring(8)
+                    } else if (cleanIp.startsWith("http://", ignoreCase = true)) {
+                        finalHttps = false
+                        cleanIp = cleanIp.substring(7)
+                    }
+                    cleanIp = cleanIp.removeSuffix("/v1/models")
+                        .removeSuffix("/v1/chat/completions")
+                        .removeSuffix("/v1")
+                        .trimEnd('/')
+
                     val updatedConfig = currentConfig.copy(
-                        ipAddress = ipAddress.trim(),
+                        ipAddress = cleanIp,
                         port = port,
-                        useHttps = useHttps,
+                        useHttps = finalHttps,
                         timeoutSeconds = timeout
                     )
                     scope.launch {

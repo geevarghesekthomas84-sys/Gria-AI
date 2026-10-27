@@ -83,12 +83,23 @@ class ChatViewModel(
     }
 
     fun selectModel(modelId: String) {
-        _uiState.value = _uiState.value.copy(selectedModel = modelId)
+        stopStreaming()
+        val isOnDevice = modelId.startsWith("ondevice:") || modelId == "ondevice:gemma"
+        val newStatus = if (isOnDevice) ConnectionStatus.CONNECTED else _uiState.value.connectionStatus
+        _uiState.value = _uiState.value.copy(
+            selectedModel = modelId,
+            connectionStatus = newStatus,
+            isModelSelectorOpen = false
+        )
         viewModelScope.launch {
-            repository.setDefaultModel(modelId)
-            _uiState.value.currentConversationId?.let { convId ->
-                _uiState.value.currentConversation?.let { conv ->
-                    repository.saveConversation(conv.copy(modelId = modelId))
+            runCatching {
+                repository.setDefaultModel(modelId)
+                _uiState.value.currentConversationId?.let { convId ->
+                    _uiState.value.currentConversation?.let { conv ->
+                        val updated = conv.copy(modelId = modelId)
+                        repository.saveConversation(updated)
+                        _uiState.value = _uiState.value.copy(currentConversation = updated)
+                    }
                 }
             }
         }
@@ -401,7 +412,23 @@ class ChatViewModel(
     fun stopStreaming() {
         streamingJob?.cancel()
         streamingJob = null
-        _uiState.value = _uiState.value.copy(isStreaming = false)
+        val currentMsgs = _uiState.value.messages
+        val lastMsg = currentMsgs.lastOrNull()
+        if (lastMsg != null && lastMsg.status == MessageStatus.STREAMING) {
+            val finalized = lastMsg.copy(
+                status = MessageStatus.COMPLETE,
+                content = lastMsg.content.ifEmpty { "Response stopped." }
+            )
+            viewModelScope.launch(Dispatchers.IO) {
+                runCatching { repository.saveMessage(finalized) }
+            }
+            _uiState.value = _uiState.value.copy(
+                isStreaming = false,
+                messages = currentMsgs.dropLast(1) + finalized
+            )
+        } else {
+            _uiState.value = _uiState.value.copy(isStreaming = false)
+        }
     }
 
     fun regenerateResponse() {
