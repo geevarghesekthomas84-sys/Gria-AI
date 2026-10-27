@@ -135,9 +135,27 @@ class OnDeviceLlmEngine(private val context: Context) {
             } catch (e: Exception) {
                 return Result.failure(
                     IllegalArgumentException(
-                        "Corrupted or invalid .task archive: ${e.localizedMessage ?: "Invalid zip"}"
+                        "Incompatible or corrupted .task bundle. On-device engine requires official Gemma 2B models. For Qwen, DeepSeek, or Llama, please connect via LM Studio."
                     )
                 )
+            }
+        }
+
+        // For .bin and .tflite files, verify standard TFLite flatbuffer magic identifier ("TFL3" at offset 4)
+        if (modelFile.name.endsWith(".bin", ignoreCase = true) || modelFile.name.endsWith(".tflite", ignoreCase = true)) {
+            try {
+                val header = ByteArray(8)
+                modelFile.inputStream().use { it.read(header) }
+                val magic = String(header, 4, 4, Charsets.US_ASCII)
+                if (magic != "TFL3") {
+                    return Result.failure(
+                        IllegalArgumentException(
+                            "Incompatible format: '${modelFile.name}' is not a valid LiteRT flatbuffer (missing TFL3 identifier). For Qwen, DeepSeek, or GGUF models, use LM Studio."
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                Log.w("OnDeviceLlmEngine", "Error checking TFL3 header: ${e.message}")
             }
         }
 
